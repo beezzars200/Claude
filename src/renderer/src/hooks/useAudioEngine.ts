@@ -185,8 +185,7 @@ export function useAudioEngine() {
       if (!eng.context) return
 
       try {
-        const response = await fetch(fileUrl)
-        const arrayBuffer = await response.arrayBuffer()
+        const arrayBuffer = await window.api.readAudioFile(fileUrl)
         const audioBuffer = await eng.context.decodeAudioData(arrayBuffer)
 
         const deckNodes = deck === 'A' ? eng.deckA : eng.deckB

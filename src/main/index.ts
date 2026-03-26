@@ -82,9 +82,15 @@ app.whenReady().then(() => {
 
   // IPC: Get file URL for playback
   ipcMain.handle('audio:getFileUrl', (_event, filePath: string) => {
-    // Convert file path to file:// URL
     const fileUrl = `file://${filePath.replace(/\\/g, '/')}`
     return fileUrl
+  })
+
+  // IPC: Read audio file as ArrayBuffer
+  ipcMain.handle('audio:readFile', async (_event, filePath: string) => {
+    const { readFile } = await import('fs/promises')
+    const buffer = await readFile(filePath)
+    return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
   })
 
   createWindow()

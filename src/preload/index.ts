@@ -12,7 +12,10 @@ const api = {
     ipcRenderer.invoke('fs:writeFile', filePath, buffer),
 
   getFileUrl: (filePath: string): Promise<string> =>
-    ipcRenderer.invoke('audio:getFileUrl', filePath)
+    ipcRenderer.invoke('audio:getFileUrl', filePath),
+
+  readAudioFile: (filePath: string): Promise<ArrayBuffer> =>
+    ipcRenderer.invoke('audio:readFile', filePath)
 }
 
 if (process.contextIsolated) {

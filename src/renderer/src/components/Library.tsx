@@ -27,19 +27,16 @@ export default function Library({ audioEngine }: LibraryProps) {
       const filePaths = await window.api.openAudioFiles()
       if (filePaths.length === 0) return
 
-      const newTracks: Track[] = await Promise.all(
-        filePaths.map(async (fp) => {
-          const url = await window.api.getFileUrl(fp)
-          const name = fp.split('/').pop()?.split('\\').pop() ?? fp
-          const nameNoExt = name.replace(/\.[^/.]+$/, '')
-          return {
-            id: fp,
-            name: nameNoExt,
-            filePath: fp,
-            fileUrl: url
-          }
-        })
-      )
+      const newTracks: Track[] = filePaths.map((fp) => {
+        const name = fp.split('/').pop()?.split('\\').pop() ?? fp
+        const nameNoExt = name.replace(/\.[^/.]+$/, '')
+        return {
+          id: fp,
+          name: nameNoExt,
+          filePath: fp,
+          fileUrl: fp  // pass raw path; audio engine reads via IPC
+        }
+      })
 
       addTracks(newTracks)
     } finally {
