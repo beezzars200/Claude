@@ -1,0 +1,116 @@
+import React from 'react'
+import { useStore } from './store/useStore'
+import { useAudioEngine } from './hooks/useAudioEngine'
+import Deck from './components/Deck'
+import Mixer from './components/Mixer'
+import Library from './components/Library'
+import Broadcast from './components/Broadcast'
+import Recorder from './components/Recorder'
+
+export default function App() {
+  const { activeTab, setActiveTab } = useStore()
+  const audioEngine = useAudioEngine()
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        background: '#0f0f14',
+        overflow: 'hidden'
+      }}
+    >
+      {/* Header */}
+      <header
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '8px 16px',
+          background: '#0a0a10',
+          borderBottom: '1px solid #2a2a3a',
+          flexShrink: 0,
+          height: 48
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #00ff88, #0088ff)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 14
+            }}
+          >
+            📻
+          </div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15, letterSpacing: '0.05em', color: '#e0e0f0' }}>
+              RADIO STUDIO
+            </div>
+            <div style={{ fontSize: 10, color: '#5555aa', letterSpacing: '0.1em' }}>
+              PROFESSIONAL BROADCAST
+            </div>
+          </div>
+        </div>
+
+        <nav style={{ display: 'flex', gap: 4 }}>
+          {(['library', 'broadcast', 'recorder'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              style={{
+                padding: '5px 14px',
+                borderRadius: 6,
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: 12,
+                fontWeight: 600,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                transition: 'all 0.15s',
+                background: activeTab === tab ? '#22223a' : 'transparent',
+                color: activeTab === tab ? '#e0e0f0' : '#666688',
+                outline: activeTab === tab ? '1px solid #3a3a5a' : 'none'
+              }}
+            >
+              {tab === 'library' ? '🎵 Library' : tab === 'broadcast' ? '📡 Broadcast' : '⏺ Recorder'}
+            </button>
+          ))}
+        </nav>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#5555aa' }}>
+          <span>v1.0.0</span>
+        </div>
+      </header>
+
+      {/* Main area */}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', padding: '10px', gap: '10px' }}>
+        {/* Deck A */}
+        <div style={{ flex: '0 0 340px' }}>
+          <Deck deck="A" audioEngine={audioEngine} />
+        </div>
+
+        {/* Center column: Mixer + bottom panel */}
+        <div style={{ flex: '0 0 240px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <Mixer audioEngine={audioEngine} />
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            {activeTab === 'library' && <Library audioEngine={audioEngine} />}
+            {activeTab === 'broadcast' && <Broadcast />}
+            {activeTab === 'recorder' && <Recorder audioEngine={audioEngine} />}
+          </div>
+        </div>
+
+        {/* Deck B */}
+        <div style={{ flex: '0 0 340px' }}>
+          <Deck deck="B" audioEngine={audioEngine} />
+        </div>
+      </div>
+    </div>
+  )
+}
