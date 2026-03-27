@@ -4,11 +4,9 @@ import { useAudioEngine } from './hooks/useAudioEngine'
 import Deck from './components/Deck'
 import Mixer from './components/Mixer'
 import Library from './components/Library'
-import Broadcast from './components/Broadcast'
-import Recorder from './components/Recorder'
 
 export default function App() {
-  const { activeTab, setActiveTab, deckA, deckB } = useStore()
+  const { deckA, deckB } = useStore()
   const audioEngine = useAudioEngine()
 
   return (
@@ -59,63 +57,51 @@ export default function App() {
           </div>
         </div>
 
-        <nav style={{ display: 'flex', gap: 4 }}>
-          {(['library', 'broadcast', 'recorder'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              style={{
-                padding: '5px 14px',
-                borderRadius: 6,
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: 12,
-                fontWeight: 600,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                transition: 'all 0.15s',
-                background: activeTab === tab ? '#22223a' : 'transparent',
-                color: activeTab === tab ? '#e0e0f0' : '#666688',
-                outline: activeTab === tab ? '1px solid #3a3a5a' : 'none'
-              }}
-            >
-              {tab === 'library' ? '🎵 Library' : tab === 'broadcast' ? '📡 Broadcast' : '⏺ Recorder'}
-            </button>
-          ))}
-        </nav>
-
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#5555aa' }}>
           <span>v1.0.0</span>
         </div>
       </header>
 
-      {/* Main area */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', padding: '10px', gap: '10px' }}>
+      {/* Top section: Decks + Mixer */}
+      <div
+        style={{
+          display: 'flex',
+          flex: 1,
+          minHeight: 0,
+          overflow: 'hidden',
+          padding: '8px 8px 4px 8px',
+          gap: 8
+        }}
+      >
         {/* Deck A */}
         <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
           <Deck deck="A" audioEngine={audioEngine} />
         </div>
 
-        {/* Center column: Mixer + bottom panel */}
-        <div style={{ flex: '0 0 220px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* Mixer */}
+        <div style={{ flex: '0 0 280px', display: 'flex', flexDirection: 'column' }}>
           <Mixer
             audioEngine={audioEngine}
             getAnalyserData={audioEngine.getAnalyserData}
             setEQ={audioEngine.setEQ}
             deckAEQ={{ low: deckA.eqLow, mid: deckA.eqMid, high: deckA.eqHigh }}
             deckBEQ={{ low: deckB.eqLow, mid: deckB.eqMid, high: deckB.eqHigh }}
+            deckAVolume={deckA.volume}
+            deckBVolume={deckB.volume}
+            deckAWave={{ waveform: deckA.waveform, waveformHF: deckA.waveformHF, currentTime: deckA.currentTime, duration: deckA.duration }}
+            deckBWave={{ waveform: deckB.waveform, waveformHF: deckB.waveformHF, currentTime: deckB.currentTime, duration: deckB.duration }}
           />
-          <div style={{ flex: 1, overflow: 'hidden' }}>
-            {activeTab === 'library' && <Library audioEngine={audioEngine} />}
-            {activeTab === 'broadcast' && <Broadcast />}
-            {activeTab === 'recorder' && <Recorder audioEngine={audioEngine} />}
-          </div>
         </div>
 
         {/* Deck B */}
         <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
           <Deck deck="B" audioEngine={audioEngine} />
         </div>
+      </div>
+
+      {/* Bottom section: Library / File Browser — full width */}
+      <div style={{ flex: '0 0 220px', padding: '0 8px 8px 8px', minHeight: 0 }}>
+        <Library audioEngine={audioEngine} />
       </div>
     </div>
   )

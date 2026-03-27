@@ -1,111 +1,183 @@
 import React, { useRef, useEffect, useCallback } from 'react'
 import { useStore } from '../store/useStore'
+import { Knob } from './Deck'
 
 interface MixerProps {
   audioEngine: {
     updateCrossfader: (value: number) => void
     updateMasterVolume: (value: number) => void
+    setDeckVolume: (deck: 'A' | 'B', volume: number) => void
   }
   getAnalyserData: (deck: 'A' | 'B') => Uint8Array | null
   setEQ: (deck: 'A' | 'B', band: 'low' | 'mid' | 'high', value: number) => void
   deckAEQ: { low: number; mid: number; high: number }
   deckBEQ: { low: number; mid: number; high: number }
+  deckAVolume: number
+  deckBVolume: number
+  deckAWave: { waveform: Float32Array | null; waveformHF: Float32Array | null; currentTime: number; duration: number }
+  deckBWave: { waveform: Float32Array | null; waveformHF: Float32Array | null; currentTime: number; duration: number }
 }
 
-// ----- Knob (copied from Deck.tsx for use in Mixer) -----
+// ----- hfToRgba (same colour scheme as Deck) -----
 
-interface KnobProps {
-  label: string
-  value: number
-  onChange: (v: number) => void
+function hfToRgba(hf: number, alpha: number): string {
+  const t = Math.max(0, Math.min(1, hf))
+  let g: number, b: number
+  if (t < 0.5) {
+    const u = t * 2
+    g = Math.round(255 + u * (204 - 255))
+    b = Math.round(136 + u * (187 - 136))
+  } else {
+    const u = (t - 0.5) * 2
+    g = Math.round(204 + u * (136 - 204))
+    b = Math.round(187 + u * (255 - 187))
+  }
+  return `rgba(0,${g},${b},${alpha})`
+}
+
+// ----- Vertical Waveform -----
+
+interface VerticalWaveformProps {
+  deck: 'A' | 'B'
+  waveform: Float32Array | null
+  waveformHF: Float32Array | null
+  currentTime: number
+  duration: number
   accent: string
 }
 
-function Knob({ label, value, onChange, accent }: KnobProps) {
-  const startY = useRef<number | null>(null)
-  const startVal = useRef(value)
+function VerticalWaveform({ waveform, waveformHF, currentTime, duration, accent }: VerticalWaveformProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const rafRef = useRef<number>(0)
 
-  const onMouseDown = (e: React.MouseEvent) => {
-    startY.current = e.clientY
-    startVal.current = value
-    const onMove = (me: MouseEvent) => {
-      if (startY.current === null) return
-      const delta = (startY.current - me.clientY) / 120
-      const next = Math.max(0, Math.min(1, startVal.current + delta))
-      onChange(next)
-    }
-    const onUp = () => {
-      startY.current = null
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-  }
+  const draw = useCallback(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
 
-  const rotation = -135 + value * 270
-  const displayDb = Math.round((value - 0.5) * 24)
-  const dbStr = displayDb >= 0 ? `+${displayDb}` : `${displayDb}`
+    const W = canvas.width
+    const H = canvas.height
+
+    ctx.fillStyle = '#0a0a14'
+    ctx.fillRect(0, 0, W, H)
+
+    if (waveform && waveform.length > 0) {
+      const numVisible = 120
+      const barH = H / numVisible
+      const progress = duration > 0 ? currentTime / duration : 0
+      const centerIdx = Math.floor(progress * waveform.length)
+
+      for (let i = 0; i < numVisible; i++) {
+        // i=0 is top (past), i=numVisible-1 is bottom (future)
+        // center is at numVisible/2
+        const offset = i - numVisible / 2
+        const srcIdx = centerIdx + Math.round(offset)
+        if (srcIdx < 0 || srcIdx >= waveform.length) continue
+
+        const amp = waveform[srcIdx]
+        const hf = waveformHF ? waveformHF[srcIdx] : 0
+        const barW = Math.max(1, amp * W * 0.9)
+        const x = (W - barW) / 2
+        const y = i * barH
+
+        const isPast = offset < 0
+        ctx.fillStyle = hfToRgba(hf, isPast ? 0.7 : 0.3)
+        ctx.fillRect(x, y, barW, Math.max(1, barH - 0.5))
+      }
+
+      // Playhead: white 1px horizontal line at H/2
+      ctx.fillStyle = accent
+      ctx.fillRect(0, H / 2 - 1, W, 1)
+    } else {
+      // No waveform — draw vertical centre line
+      ctx.strokeStyle = '#2a2a3a'
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.moveTo(W / 2, 0)
+      ctx.lineTo(W / 2, H)
+      ctx.stroke()
+      // Playhead
+      ctx.fillStyle = accent + '40'
+      ctx.fillRect(0, H / 2 - 1, W, 1)
+    }
+
+    rafRef.current = requestAnimationFrame(draw)
+  }, [waveform, waveformHF, currentTime, duration, accent])
+
+  useEffect(() => {
+    rafRef.current = requestAnimationFrame(draw)
+    return () => cancelAnimationFrame(rafRef.current)
+  }, [draw])
 
   return (
-    <div className="knob-container" style={{ gap: 4 }}>
-      <div
-        className="knob"
-        style={{
-          width: 42,
-          height: 42,
-          borderRadius: '50%',
-          background: 'radial-gradient(circle at 35% 35%, #2a2a3e, #12121a)',
-          border: `2px solid ${value === 0.5 ? '#3a3a5a' : accent}`,
-          position: 'relative',
-          cursor: 'ns-resize',
-          boxShadow: `0 2px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)`,
-          userSelect: 'none'
-        }}
-        onMouseDown={onMouseDown}
-      >
-        <div
-          style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            width: 2,
-            height: 14,
-            background: value === 0.5 ? '#5a5a7a' : accent,
-            borderRadius: 1,
-            transformOrigin: '50% 100%',
-            transform: `translate(-50%, -100%) rotate(${rotation}deg)`,
-          }}
-        />
-      </div>
-      <div style={{ fontSize: 9, color: '#8888aa', textAlign: 'center', letterSpacing: '0.06em' }}>
-        {label}
-      </div>
-      <div style={{ fontSize: 9, color: value === 0.5 ? '#5a5a7a' : accent, textAlign: 'center' }}>
-        {dbStr}dB
-      </div>
-    </div>
+    <canvas
+      ref={canvasRef}
+      width={56}
+      height={200}
+      style={{ width: 56, height: '100%', display: 'block', borderRadius: 4 }}
+    />
   )
 }
 
-// ----- EQ Strip -----
+// ----- EQ Strip (with VU beside it) -----
 
 interface EQStripProps {
   deck: 'A' | 'B'
   eq: { low: number; mid: number; high: number }
   setEQ: (deck: 'A' | 'B', band: 'low' | 'mid' | 'high', value: number) => void
   accent: string
+  vuBarRefs: React.MutableRefObject<(HTMLDivElement | null)[]>
 }
 
-function EQStrip({ deck, eq, setEQ, accent }: EQStripProps) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+const EQ_BARS = 8
+
+function EQStrip({ deck, eq, setEQ, accent, vuBarRefs }: EQStripProps) {
+  const knobs = (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
       <div style={{ fontSize: 9, color: accent, letterSpacing: '0.1em', fontWeight: 700 }}>{deck}</div>
       <Knob label="HI" value={eq.high === 0 ? 0.5 : eq.high} onChange={(v) => setEQ(deck, 'high', v)} accent={accent} />
       <Knob label="MID" value={eq.mid === 0 ? 0.5 : eq.mid} onChange={(v) => setEQ(deck, 'mid', v)} accent={accent} />
       <Knob label="LOW" value={eq.low === 0 ? 0.5 : eq.low} onChange={(v) => setEQ(deck, 'low', v)} accent={accent} />
     </div>
   )
+
+  const vu = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center', justifyContent: 'center' }}>
+      {Array.from({ length: EQ_BARS }, (_, i) => {
+        const idx = EQ_BARS - 1 - i
+        return (
+          <div
+            key={i}
+            ref={(el) => { vuBarRefs.current[idx] = el }}
+            style={{
+              width: 8,
+              height: 4,
+              borderRadius: 1,
+              background: '#1e1e2a',
+              transition: 'background 0.05s'
+            }}
+          />
+        )
+      })}
+    </div>
+  )
+
+  if (deck === 'A') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        {knobs}
+        {vu}
+      </div>
+    )
+  } else {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        {vu}
+        {knobs}
+      </div>
+    )
+  }
 }
 
 // ----- Custom Fader components -----
@@ -267,13 +339,27 @@ function VUMeter({ color, barRefs, bars = 12, barWidth = 10, barHeight = 4 }: VU
 
 const MASTER_BARS = 16
 
-export default function Mixer({ audioEngine, getAnalyserData, setEQ, deckAEQ, deckBEQ }: MixerProps) {
-  const { updateCrossfader, updateMasterVolume } = audioEngine
+export default function Mixer({
+  audioEngine,
+  getAnalyserData,
+  setEQ,
+  deckAEQ,
+  deckBEQ,
+  deckAVolume,
+  deckBVolume,
+  deckAWave,
+  deckBWave
+}: MixerProps) {
+  const { updateCrossfader, updateMasterVolume, setDeckVolume } = audioEngine
   const { crossfader, masterVolume } = useStore()
 
   // Master stereo VU bar refs (L = Deck A, R = Deck B)
   const masterLBarRefs = useRef<(HTMLDivElement | null)[]>(Array(MASTER_BARS).fill(null))
   const masterRBarRefs = useRef<(HTMLDivElement | null)[]>(Array(MASTER_BARS).fill(null))
+
+  // Deck A and B EQ strip VU bar refs
+  const vuABarRefs = useRef<(HTMLDivElement | null)[]>(Array(EQ_BARS).fill(null))
+  const vuBBarRefs = useRef<(HTMLDivElement | null)[]>(Array(EQ_BARS).fill(null))
 
   // Level refs (no re-render)
   const levelARef = useRef(0)
@@ -328,6 +414,8 @@ export default function Mixer({ audioEngine, getAnalyserData, setEQ, deckAEQ, de
 
       updateVUBars(masterLBarRefs, levelARef.current, '#ffffff', MASTER_BARS)
       updateVUBars(masterRBarRefs, levelBRef.current, '#ffffff', MASTER_BARS)
+      updateVUBars(vuABarRefs, levelARef.current, '#00ff88', EQ_BARS)
+      updateVUBars(vuBBarRefs, levelBRef.current, '#0088ff', EQ_BARS)
 
       rafRef.current = requestAnimationFrame(animate)
     }
@@ -344,46 +432,100 @@ export default function Mixer({ audioEngine, getAnalyserData, setEQ, deckAEQ, de
         background: '#14141e',
         border: '1px solid #2a2a3a',
         borderRadius: 12,
-        padding: 14,
+        padding: 12,
         display: 'flex',
         flexDirection: 'column',
-        gap: 12,
-        flexShrink: 0
+        gap: 10,
+        flexShrink: 0,
+        height: '100%'
       }}
     >
-      {/* Top row: A EQ | Master VU+Knob | B EQ */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, justifyContent: 'space-between' }}>
-        {/* Deck A EQ strip */}
-        <EQStrip deck="A" eq={deckAEQ} setEQ={setEQ} accent="#00ff88" />
+      {/* Row 1: Vol Knob A | spacer | Vol Knob B */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+          <div style={{ fontSize: 9, color: '#00ff88', letterSpacing: '0.08em', fontWeight: 700 }}>VOL A</div>
+          <Knob
+            label="VOL"
+            value={deckAVolume}
+            onChange={(v) => setDeckVolume('A', v)}
+            accent="#00ff88"
+          />
+        </div>
+        <div style={{ fontSize: 9, color: '#5555aa', letterSpacing: '0.1em' }}>MIXER</div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+          <div style={{ fontSize: 9, color: '#0088ff', letterSpacing: '0.08em', fontWeight: 700 }}>VOL B</div>
+          <Knob
+            label="VOL"
+            value={deckBVolume}
+            onChange={(v) => setDeckVolume('B', v)}
+            accent="#0088ff"
+          />
+        </div>
+      </div>
+
+      {/* Row 2: EQ A + VU A | Vert Wave A | Master VU + Knob | Vert Wave B | VU B + EQ B */}
+      <div style={{ display: 'flex', flex: 1, minHeight: 0, gap: 6, alignItems: 'stretch' }}>
+        {/* EQ A strip (knobs left, VU right) */}
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <EQStrip deck="A" eq={deckAEQ} setEQ={setEQ} accent="#00ff88" vuBarRefs={vuABarRefs} />
+        </div>
+
+        {/* Vertical waveform A */}
+        <div style={{ flex: '0 0 56px', display: 'flex', alignItems: 'stretch' }}>
+          <VerticalWaveform
+            deck="A"
+            waveform={deckAWave.waveform}
+            waveformHF={deckAWave.waveformHF}
+            currentTime={deckAWave.currentTime}
+            duration={deckAWave.duration}
+            accent="#00ff88"
+          />
+        </div>
 
         {/* Master VU + Knob */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
           <div style={{ fontSize: 9, color: '#8888aa', letterSpacing: '0.1em' }}>MASTER</div>
-          {/* Stereo VU: two columns side by side */}
           <div style={{ display: 'flex', gap: 3 }}>
             <VUMeter color="#ffffff" barRefs={masterLBarRefs} bars={16} barWidth={12} barHeight={5} />
             <VUMeter color="#ffffff" barRefs={masterRBarRefs} bars={16} barWidth={12} barHeight={5} />
           </div>
-          {/* Master knob */}
           <Knob label="VOL" value={masterVolume} onChange={updateMasterVolume} accent="#ffffff" />
           <div style={{ fontSize: 9, color: '#e0e0f0' }}>{Math.round(masterVolume * 100)}%</div>
         </div>
 
-        {/* Deck B EQ strip */}
-        <EQStrip deck="B" eq={deckBEQ} setEQ={setEQ} accent="#0088ff" />
+        {/* Vertical waveform B */}
+        <div style={{ flex: '0 0 56px', display: 'flex', alignItems: 'stretch' }}>
+          <VerticalWaveform
+            deck="B"
+            waveform={deckBWave.waveform}
+            waveformHF={deckBWave.waveformHF}
+            currentTime={deckBWave.currentTime}
+            duration={deckBWave.duration}
+            accent="#0088ff"
+          />
+        </div>
+
+        {/* EQ B strip (VU left, knobs right) */}
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <EQStrip deck="B" eq={deckBEQ} setEQ={setEQ} accent="#0088ff" vuBarRefs={vuBBarRefs} />
+        </div>
       </div>
 
-      {/* Crossfader */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {/* Row 3: Crossfader — centre third only */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: '#8888aa' }}>
           <span style={{ color: '#00ff88', fontWeight: 700 }}>A</span>
           <span style={{ letterSpacing: '0.06em' }}>CROSSFADER</span>
           <span style={{ color: '#0088ff', fontWeight: 700 }}>B</span>
         </div>
-        <HorizontalFader value={crossfader} onChange={updateCrossfader} />
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <div style={{ width: '60%' }}>
+            <HorizontalFader value={crossfader} onChange={updateCrossfader} />
+          </div>
+        </div>
       </div>
 
-      {/* Status */}
+      {/* Row 4: Status text */}
       <div style={{ textAlign: 'center', fontSize: 10, color: '#6666aa' }}>
         {crossPercent < 50 ? `A ${100 - crossPercent * 2}%` : crossPercent > 50 ? `B ${(crossPercent - 50) * 2}%` : 'CENTER'}
       </div>
