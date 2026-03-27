@@ -14,29 +14,8 @@ interface MixerProps {
   deckBEQ: { low: number; mid: number; high: number }
   deckAVolume: number
   deckBVolume: number
-  deckAWave: { waveform: Float32Array | null; waveformHF: Float32Array | null; currentTime: number; duration: number }
-  deckBWave: { waveform: Float32Array | null; waveformHF: Float32Array | null; currentTime: number; duration: number }
-}
-
-// ----- hfToRgba (same colour scheme as Deck) -----
-
-function hfToRgba(hf: number, alpha: number): string {
-  const t = Math.max(0, Math.min(1, hf))
-  let r: number, g: number, b: number
-  if (t < 0.5) {
-    // Red (255,50,50) → Green (0,255,136)
-    const u = t * 2
-    r = Math.round(255 + u * (0 - 255))
-    g = Math.round(50 + u * (255 - 50))
-    b = Math.round(50 + u * (136 - 50))
-  } else {
-    // Green (0,255,136) → Yellow (255,200,0)
-    const u = (t - 0.5) * 2
-    r = Math.round(0 + u * 255)
-    g = Math.round(255 + u * (200 - 255))
-    b = Math.round(136 + u * (0 - 136))
-  }
-  return `rgba(${r},${g},${b},${alpha})`
+  deckAWave: { waveform: Float32Array | null; waveformLF: Float32Array | null; waveformMF: Float32Array | null; waveformHF: Float32Array | null; currentTime: number; duration: number }
+  deckBWave: { waveform: Float32Array | null; waveformLF: Float32Array | null; waveformMF: Float32Array | null; waveformHF: Float32Array | null; currentTime: number; duration: number }
 }
 
 // ----- Vertical Waveform -----
@@ -44,13 +23,15 @@ function hfToRgba(hf: number, alpha: number): string {
 interface VerticalWaveformProps {
   deck: 'A' | 'B'
   waveform: Float32Array | null
+  waveformLF: Float32Array | null
+  waveformMF: Float32Array | null
   waveformHF: Float32Array | null
   currentTime: number
   duration: number
   accent: string
 }
 
-function VerticalWaveform({ waveform, waveformHF, currentTime, duration, accent }: VerticalWaveformProps) {
+function VerticalWaveform({ waveform, waveformLF, waveformMF, waveformHF, currentTime, duration, accent }: VerticalWaveformProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rafRef = useRef<number>(0)
 
@@ -86,14 +67,28 @@ function VerticalWaveform({ waveform, waveformHF, currentTime, duration, accent 
         if (srcIdx < 0 || srcIdx >= waveform.length) continue
 
         const amp = waveform[srcIdx]
-        const hf = waveformHF ? waveformHF[srcIdx] : 0
-        const barW = Math.max(1, amp * W * 0.9)
-        const x = (W - barW) / 2
+        const lf = waveformLF ? waveformLF[srcIdx] : 0.33
+        const mf = waveformMF ? waveformMF[srcIdx] : 0.33
+        const hf = waveformHF ? waveformHF[srcIdx] : 0.33
+        const totalW = Math.max(1, amp * W * 0.9)
+        const total = lf + mf + hf + 0.001
+        const lfW = (lf / total) * totalW
+        const mfW = (mf / total) * totalW
+        const hfW = (hf / total) * totalW
+        const barLeft = (W - totalW) / 2
+        const bH = Math.max(1, barH - 0.5)
         const y = i * barH
-
         const isPast = offset < 0
-        ctx.fillStyle = hfToRgba(hf, isPast ? 0.7 : 0.3)
-        ctx.fillRect(x, y, barW, Math.max(1, barH - 0.5))
+        const alpha = isPast ? 0.8 : 0.3
+        // Low: red
+        ctx.fillStyle = `rgba(220,50,50,${alpha})`
+        ctx.fillRect(barLeft, y, Math.max(1, lfW), bH)
+        // Mid: green
+        ctx.fillStyle = `rgba(0,200,80,${alpha})`
+        ctx.fillRect(barLeft + lfW, y, Math.max(1, mfW), bH)
+        // High: blue
+        ctx.fillStyle = `rgba(0,160,255,${alpha})`
+        ctx.fillRect(barLeft + lfW + mfW, y, Math.max(1, hfW), bH)
       }
 
       // Playhead: white 1px horizontal line at H/2
@@ -113,7 +108,7 @@ function VerticalWaveform({ waveform, waveformHF, currentTime, duration, accent 
     }
 
     rafRef.current = requestAnimationFrame(draw)
-  }, [waveform, waveformHF, accent])
+  }, [waveform, waveformLF, waveformMF, waveformHF, accent])
 
   useEffect(() => {
     rafRef.current = requestAnimationFrame(draw)

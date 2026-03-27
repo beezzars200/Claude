@@ -22,6 +22,8 @@ export interface DeckState {
   duration: number
   isLoaded: boolean
   waveform: Float32Array | null
+  waveformLF: Float32Array | null
+  waveformMF: Float32Array | null
   waveformHF: Float32Array | null
 }
 
@@ -91,6 +93,8 @@ const defaultDeck: DeckState = {
   duration: 0,
   isLoaded: false,
   waveform: null,
+  waveformLF: null,
+  waveformMF: null,
   waveformHF: null
 }
 

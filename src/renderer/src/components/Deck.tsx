@@ -293,25 +293,6 @@ function Platter({ isPlaying, accent, size = 160 }: PlatterProps) {
   )
 }
 
-function hfToRgba(hf: number, alpha: number): string {
-  const t = Math.max(0, Math.min(1, hf))
-  let r: number, g: number, b: number
-  if (t < 0.5) {
-    // Red (255,50,50) → Green (0,255,136)
-    const u = t * 2
-    r = Math.round(255 + u * (0 - 255))
-    g = Math.round(50 + u * (255 - 50))
-    b = Math.round(50 + u * (136 - 50))
-  } else {
-    // Green (0,255,136) → Yellow (255,200,0)
-    const u = (t - 0.5) * 2
-    r = Math.round(0 + u * 255)
-    g = Math.round(255 + u * (200 - 255))
-    b = Math.round(136 + u * (0 - 136))
-  }
-  return `rgba(${r},${g},${b},${alpha})`
-}
-
 export default function Deck({ deck, audioEngine }: DeckProps) {
   const { playDeck, pauseDeck, cueDeck, seekDeck } = audioEngine
   const deckState = useStore((s) => (deck === 'A' ? s.deckA : s.deckB))
@@ -343,6 +324,8 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
     ctx.fillRect(0, 0, W, H)
 
     const waveform = deckState.waveform
+    const waveformLF = deckState.waveformLF
+    const waveformMF = deckState.waveformMF
     const waveformHF = deckState.waveformHF
     if (waveform && waveform.length > 0) {
       const numPoints = waveform.length
@@ -350,16 +333,31 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
       const playedBars = Math.floor(progress * numPoints)
       const barWidth = W / numPoints
 
-      for (let i = 0; i < numPoints; i++) {
-        const barH = Math.max(2, waveform[i] * H * 0.9)
-        const x = i * barWidth
-        const y = (H - barH) / 2
-        const hf = waveformHF ? waveformHF[i] : 0
+      const drawBar = (i: number, bW: number, x: number, alpha: number) => {
+        const amp = waveform[i]
+        const lf = waveformLF ? waveformLF[i] : 0.33
+        const mf = waveformMF ? waveformMF[i] : 0.33
+        const hf = waveformHF ? waveformHF[i] : 0.33
+        const totalH = Math.max(2, amp * H * 0.85)
+        const total = lf + mf + hf + 0.001
+        const lfH = (lf / total) * totalH
+        const mfH = (mf / total) * totalH
+        const hfH = (hf / total) * totalH
+        const barBottom = H / 2 + totalH / 2
+        // Low: red
+        ctx.fillStyle = `rgba(220,50,50,${alpha})`
+        ctx.fillRect(x, barBottom - lfH, bW, Math.max(1, lfH))
+        // Mid: green
+        ctx.fillStyle = `rgba(0,200,80,${alpha})`
+        ctx.fillRect(x, barBottom - lfH - mfH, bW, Math.max(1, mfH))
+        // High: blue
+        ctx.fillStyle = `rgba(0,160,255,${alpha})`
+        ctx.fillRect(x, barBottom - lfH - mfH - hfH, bW, Math.max(1, hfH))
+      }
 
-        ctx.fillStyle = i < playedBars
-          ? hfToRgba(hf, 0.9)   // played: full brightness frequency color
-          : hfToRgba(hf, 0.22)  // unplayed: same hue, very dim
-        ctx.fillRect(x, y, Math.max(1, barWidth - 0.5), barH)
+      for (let i = 0; i < numPoints; i++) {
+        const bW = Math.max(1, barWidth - 0.5)
+        drawBar(i, bW, i * barWidth, i < playedBars ? 0.9 : 0.22)
       }
 
       // Playhead line
@@ -383,7 +381,7 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
       ctx.lineTo(W, H / 2)
       ctx.stroke()
     }
-  }, [deckState.waveform, deckState.waveformHF, accent, bg])
+  }, [deckState.waveform, deckState.waveformLF, deckState.waveformMF, deckState.waveformHF, accent, bg])
 
   // Top large waveform animation
   const drawTopWaveform = useCallback(() => {
@@ -421,7 +419,7 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
     <div
       style={{
         background: '#14141e',
-        border: `1px solid ${deckState.isPlaying ? accent + '60' : '#2a2a3a'}`,
+        border: `1px solid ${deckState.isPlaying ? accent + '40' : '#2a2a3a'}`,
         borderRadius: 12,
         padding: 14,
         display: 'flex',
@@ -429,8 +427,8 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
         height: '100%',
         gap: 10,
         alignItems: 'center',
-        boxShadow: deckState.isPlaying ? `0 0 20px ${accent}18` : 'none',
-        transition: 'border-color 0.3s, box-shadow 0.3s'
+        boxShadow: 'none',
+        transition: 'border-color 0.3s'
       }}
     >
       {deck === 'A' && (

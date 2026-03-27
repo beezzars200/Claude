@@ -206,7 +206,7 @@ export function useAudioEngine() {
         const bpm = estimateBPM(audioBuffer)
 
         // Pre-render waveform + frequency coloring
-        const { waveform, waveformHF } = computeWaveformData(audioBuffer)
+        const { waveform, waveformLF, waveformMF, waveformHF } = computeWaveformData(audioBuffer)
 
         const setter = deck === 'A' ? setDeckA : setDeckB
         setter({
@@ -216,6 +216,8 @@ export function useAudioEngine() {
           duration: audioBuffer.duration,
           bpm,
           waveform,
+          waveformLF,
+          waveformMF,
           waveformHF
         })
       } catch (err) {
@@ -225,28 +227,54 @@ export function useAudioEngine() {
     [initAudio, setDeckA, setDeckB]
   )
 
-  // Pre-render waveform amplitude + high-frequency energy ratio per bar
-  function computeWaveformData(buffer: AudioBuffer, numPoints: number = 800): { waveform: Float32Array; waveformHF: Float32Array } {
+  // Pre-render waveform amplitude + 3 frequency bands per bar
+  function computeWaveformData(buffer: AudioBuffer, numPoints: number = 800): {
+    waveform: Float32Array; waveformLF: Float32Array; waveformMF: Float32Array; waveformHF: Float32Array
+  } {
     const channelData = buffer.getChannelData(0)
     const blockSize = Math.floor(channelData.length / numPoints)
     const waveform = new Float32Array(numPoints)
+    const waveformLF = new Float32Array(numPoints)
+    const waveformMF = new Float32Array(numPoints)
     const waveformHF = new Float32Array(numPoints)
 
     for (let i = 0; i < numPoints; i++) {
       const offset = i * blockSize
-      let totalE = 0, diffE = 0
+      let totalE = 0, diffE = 0, slowE = 0
+      const slowWindow = Math.max(1, Math.floor(blockSize / 8))
+
       for (let j = 1; j < blockSize; j++) {
         const s = channelData[offset + j]
         const prev = channelData[offset + j - 1]
         totalE += Math.abs(s)
         diffE += Math.abs(s - prev)
       }
-      waveform[i] = totalE / blockSize
-      // diffE scales with frequency — normalize relative to total energy
-      waveformHF[i] = Math.min(1, (diffE / (totalE * 2 + 0.001)) * 3)
+      for (let j = 0; j < blockSize - slowWindow; j++) {
+        let avg = 0
+        for (let k = 0; k < slowWindow; k++) avg += Math.abs(channelData[offset + j + k])
+        slowE += avg / slowWindow
+      }
+      slowE /= Math.max(1, blockSize - slowWindow)
+
+      const avgTotal = totalE / Math.max(1, blockSize)
+      const avgDiff = diffE / Math.max(1, blockSize)
+
+      waveform[i] = avgTotal
+      waveformLF[i] = slowE
+      waveformHF[i] = Math.min(avgTotal, avgDiff * 0.5)
+      waveformMF[i] = Math.max(0, avgTotal - slowE * 0.7 - avgDiff * 0.3)
     }
 
-    return { waveform, waveformHF }
+    const normalise = (arr: Float32Array) => {
+      let max = 0
+      for (let i = 0; i < arr.length; i++) if (arr[i] > max) max = arr[i]
+      if (max > 0) for (let i = 0; i < arr.length; i++) arr[i] /= max
+    }
+    normalise(waveformLF)
+    normalise(waveformMF)
+    normalise(waveformHF)
+
+    return { waveform, waveformLF, waveformMF, waveformHF }
   }
 
   // Estimate BPM from audio buffer (simplified)
