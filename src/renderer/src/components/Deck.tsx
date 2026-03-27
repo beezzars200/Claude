@@ -7,18 +7,13 @@ interface DeckProps {
     playDeck: (deck: 'A' | 'B') => void
     pauseDeck: (deck: 'A' | 'B') => void
     cueDeck: (deck: 'A' | 'B') => void
-    setDeckVolume: (deck: 'A' | 'B', volume: number) => void
-    setEQ: (deck: 'A' | 'B', band: 'low' | 'mid' | 'high', value: number) => void
     seekDeck: (deck: 'A' | 'B', time: number) => void
     getWaveformData: (deck: 'A' | 'B') => Uint8Array | null
-    getAnalyserData: (deck: 'A' | 'B') => Uint8Array | null
   }
 }
 
 const ACCENT = { A: '#00ff88', B: '#0088ff' }
 const BG = { A: '#0a1a0f', B: '#0a0f1a' }
-
-const DECK_VU_BARS = 8
 
 function formatTime(seconds: number): string {
   if (!seconds || isNaN(seconds)) return '0:00'
@@ -293,7 +288,7 @@ function Scrubber({ value, max, onChange, accent }: ScrubberProps) {
 }
 
 export default function Deck({ deck, audioEngine }: DeckProps) {
-  const { playDeck, pauseDeck, cueDeck, setDeckVolume, setEQ, seekDeck, getAnalyserData } = audioEngine
+  const { playDeck, pauseDeck, cueDeck, seekDeck } = audioEngine
   const deckState = useStore((s) => (deck === 'A' ? s.deckA : s.deckB))
   const accent = ACCENT[deck]
   const bg = BG[deck]
@@ -305,13 +300,6 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
   // Top large waveform
   const topCanvasRef = useRef<HTMLCanvasElement>(null)
   const topAnimRef = useRef<number>(0)
-
-  // Deck VU meter bar refs
-  const deckBarRefs = useRef<(HTMLDivElement | null)[]>(Array(DECK_VU_BARS).fill(null))
-  const deckVUAnimRef = useRef<number>(0)
-  const deckLevelRef = useRef(0)
-  const isPlayingRef = useRef(deckState.isPlaying)
-  isPlayingRef.current = deckState.isPlaying
 
   // Green(0,255,136) → Teal(0,204,187) → Blue(0,136,255) based on HF ratio
   const hfToRgba = (hf: number, alpha: number): string => {
@@ -409,42 +397,6 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
     topAnimRef.current = requestAnimationFrame(drawTopWaveform)
     return () => cancelAnimationFrame(topAnimRef.current)
   }, [drawTopWaveform])
-
-  // Deck VU meter animation
-  useEffect(() => {
-    const animate = () => {
-      const data = getAnalyserData(deck)
-      if (data && data.length > 0 && isPlayingRef.current) {
-        let sum = 0
-        for (let i = 0; i < data.length; i++) sum += data[i]
-        deckLevelRef.current = sum / (255 * data.length)
-      } else {
-        deckLevelRef.current = Math.max(0, deckLevelRef.current - 0.04)
-      }
-
-      const level = deckLevelRef.current
-      const lit = Math.round(level * DECK_VU_BARS)
-      for (let idx = 0; idx < DECK_VU_BARS; idx++) {
-        const el = deckBarRefs.current[idx]
-        if (!el) continue
-        const isLit = idx < lit
-        const isRed = idx >= DECK_VU_BARS - 1
-        const isYellow = idx >= DECK_VU_BARS - 2 && idx < DECK_VU_BARS - 1
-        if (isLit) {
-          el.style.background = isRed ? '#ff3366' : isYellow ? '#ffcc00' : accent
-          el.style.boxShadow = (!isRed && !isYellow) ? `0 0 4px ${accent}60` : 'none'
-        } else {
-          el.style.background = '#1e1e2a'
-          el.style.boxShadow = 'none'
-        }
-      }
-
-      deckVUAnimRef.current = requestAnimationFrame(animate)
-    }
-
-    deckVUAnimRef.current = requestAnimationFrame(animate)
-    return () => cancelAnimationFrame(deckVUAnimRef.current)
-  }, [getAnalyserData, deck, accent])
 
   const handleSeek = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!deckState.isLoaded || deckState.duration === 0) return
@@ -626,64 +578,6 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
         </button>
       </div>
 
-      {/* EQ + VU + Volume */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', paddingTop: 4 }}>
-        {/* EQ knobs */}
-        <div style={{ display: 'flex', gap: 10 }}>
-          <Knob
-            label="LOW"
-            value={deckState.eqLow === 0 ? 0.5 : deckState.eqLow}
-            onChange={(v) => setEQ(deck, 'low', v)}
-            accent={accent}
-          />
-          <Knob
-            label="MID"
-            value={deckState.eqMid === 0 ? 0.5 : deckState.eqMid}
-            onChange={(v) => setEQ(deck, 'mid', v)}
-            accent={accent}
-          />
-          <Knob
-            label="HIGH"
-            value={deckState.eqHigh === 0 ? 0.5 : deckState.eqHigh}
-            onChange={(v) => setEQ(deck, 'high', v)}
-            accent={accent}
-          />
-        </div>
-
-        {/* Deck VU Meter */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center', justifyContent: 'flex-end' }}>
-          {Array.from({ length: DECK_VU_BARS }, (_, i) => {
-            const idx = DECK_VU_BARS - 1 - i
-            return (
-              <div
-                key={i}
-                ref={(el) => { deckBarRefs.current[idx] = el }}
-                style={{
-                  width: 8,
-                  height: 4,
-                  borderRadius: 1,
-                  background: '#1e1e2a',
-                  transition: 'background 0.05s'
-                }}
-              />
-            )
-          })}
-        </div>
-
-        {/* Volume fader — premium custom vertical fader */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-          <div style={{ fontSize: 9, color: '#8888aa', letterSpacing: '0.06em' }}>VOL</div>
-          <VerticalFader
-            value={deckState.volume}
-            onChange={(v) => setDeckVolume(deck, v)}
-            accent={accent}
-            height={90}
-          />
-          <div style={{ fontSize: 9, color: accent }}>
-            {Math.round(deckState.volume * 100)}%
-          </div>
-        </div>
-      </div>
     </div>
   )
 }

@@ -15,7 +15,12 @@ const api = {
     ipcRenderer.invoke('audio:getFileUrl', filePath),
 
   readAudioFile: (filePath: string): Promise<ArrayBuffer> =>
-    ipcRenderer.invoke('audio:readFile', filePath)
+    ipcRenderer.invoke('audio:readFile', filePath),
+
+  getHomePath: (): Promise<string> => ipcRenderer.invoke('fs:getHomePath'),
+  getMusicPath: (): Promise<string> => ipcRenderer.invoke('fs:getMusicPath'),
+  readDir: (dirPath: string): Promise<Array<{ name: string; isDirectory: boolean; path: string }>> =>
+    ipcRenderer.invoke('fs:readDir', dirPath)
 }
 
 if (process.contextIsolated) {

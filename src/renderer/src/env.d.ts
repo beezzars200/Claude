@@ -6,5 +6,9 @@ interface Window {
     saveRecording: (defaultName: string) => Promise<string | null>
     writeFile: (filePath: string, buffer: ArrayBuffer) => Promise<{ success: boolean; error?: string }>
     getFileUrl: (filePath: string) => Promise<string>
+    readAudioFile: (filePath: string) => Promise<ArrayBuffer>
+    getHomePath: () => Promise<string>
+    getMusicPath: () => Promise<string>
+    readDir: (dirPath: string) => Promise<Array<{ name: string; isDirectory: boolean; path: string }>>
   }
 }

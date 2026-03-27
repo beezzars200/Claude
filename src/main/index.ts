@@ -93,6 +93,35 @@ app.whenReady().then(() => {
     return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
   })
 
+  // IPC: Get home directory path
+  ipcMain.handle('fs:getHomePath', () => app.getPath('home'))
+
+  // IPC: Get Music directory path
+  ipcMain.handle('fs:getMusicPath', () => app.getPath('music'))
+
+  // IPC: Read directory contents
+  ipcMain.handle('fs:readDir', async (_event, dirPath: string) => {
+    const { readdir } = await import('fs/promises')
+    const { join } = await import('path')
+    try {
+      const entries = await readdir(dirPath, { withFileTypes: true })
+      const AUDIO_EXTS = new Set(['.mp3', '.wav', '.flac', '.ogg', '.aac', '.m4a', '.aiff'])
+      return entries
+        .filter(e => e.isDirectory() || AUDIO_EXTS.has(require('path').extname(e.name).toLowerCase()))
+        .map(e => ({
+          name: e.name,
+          isDirectory: e.isDirectory(),
+          path: join(dirPath, e.name)
+        }))
+        .sort((a, b) => {
+          if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1
+          return a.name.localeCompare(b.name)
+        })
+    } catch {
+      return []
+    }
+  })
+
   createWindow()
 
   app.on('activate', function () {
