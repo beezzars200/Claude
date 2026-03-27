@@ -148,7 +148,6 @@ export default function Library({ audioEngine }: LibraryProps) {
       setColumns(cols => cols.map((c, i) =>
         i === colIdx ? { ...c, selectedName: entry.name } : c
       ))
-      await addFileToLibrary(entry)
     }
   }
 

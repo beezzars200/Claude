@@ -133,17 +133,20 @@ interface EQStripProps {
   setEQ: (deck: 'A' | 'B', band: 'low' | 'mid' | 'high', value: number) => void
   accent: string
   vuBarRefs: React.MutableRefObject<(HTMLDivElement | null)[]>
+  volValue: number
+  onVolChange: (v: number) => void
 }
 
 const EQ_BARS = 8
 
-function EQStrip({ deck, eq, setEQ, accent, vuBarRefs }: EQStripProps) {
+function EQStrip({ deck, eq, setEQ, accent, vuBarRefs, volValue, onVolChange }: EQStripProps) {
   const knobs = (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
       <div style={{ fontSize: 9, color: accent, letterSpacing: '0.1em', fontWeight: 700 }}>{deck}</div>
       <Knob label="HI" value={eq.high === 0 ? 0.5 : eq.high} onChange={(v) => setEQ(deck, 'high', v)} accent={accent} />
       <Knob label="MID" value={eq.mid === 0 ? 0.5 : eq.mid} onChange={(v) => setEQ(deck, 'mid', v)} accent={accent} />
       <Knob label="LOW" value={eq.low === 0 ? 0.5 : eq.low} onChange={(v) => setEQ(deck, 'low', v)} accent={accent} />
+      <Knob label="VOL" value={volValue} onChange={onVolChange} accent={accent} />
     </div>
   )
 
@@ -400,9 +403,9 @@ export default function Mixer({
       // Deck A (left channel)
       const dataA = getAnalyserData('A')
       if (dataA && dataA.length > 0 && isPlayingARef.current) {
-        let sumA = 0
-        for (let i = 0; i < dataA.length; i++) sumA += dataA[i]
-        levelARef.current = sumA / (255 * dataA.length)
+        let peakA = 0
+        for (let i = 0; i < dataA.length; i++) if (dataA[i] > peakA) peakA = dataA[i]
+        levelARef.current = peakA / 255
       } else {
         levelARef.current = Math.max(0, levelARef.current - 0.04)
       }
@@ -410,9 +413,9 @@ export default function Mixer({
       // Deck B (right channel)
       const dataB = getAnalyserData('B')
       if (dataB && dataB.length > 0 && isPlayingBRef.current) {
-        let sumB = 0
-        for (let i = 0; i < dataB.length; i++) sumB += dataB[i]
-        levelBRef.current = sumB / (255 * dataB.length)
+        let peakB = 0
+        for (let i = 0; i < dataB.length; i++) if (dataB[i] > peakB) peakB = dataB[i]
+        levelBRef.current = peakB / 255
       } else {
         levelBRef.current = Math.max(0, levelBRef.current - 0.04)
       }
@@ -455,19 +458,19 @@ export default function Mixer({
         height: '100%'
       }}
     >
-      {/* Row 1: VOL A | VertWave A | Master VU + Knob | VertWave B | VOL B */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, alignSelf: 'flex-end' }}>
-          <div style={{ fontSize: 9, color: '#00ff88', letterSpacing: '0.08em', fontWeight: 700 }}>VOL A</div>
-          <Knob
-            label="VOL"
-            value={deckAVolume}
-            onChange={(v) => setDeckVolume('A', v)}
-            accent="#00ff88"
-          />
-        </div>
+      {/* Row 1: EQ+VOL A | VertWave A | Master VU + Knob | VertWave B | EQ+VOL B */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+        <EQStrip
+          deck="A"
+          eq={deckAEQ}
+          setEQ={setEQ}
+          accent="#00ff88"
+          vuBarRefs={vuABarRefs}
+          volValue={deckAVolume}
+          onVolChange={(v) => setDeckVolume('A', v)}
+        />
 
-        <div style={{ flex: '0 0 56px', display: 'flex', alignItems: 'stretch' }}>
+        <div style={{ flex: '0 0 56px', alignSelf: 'stretch' }}>
           <VerticalWaveform
             deck="A"
             waveform={deckAWave.waveform}
@@ -491,7 +494,7 @@ export default function Mixer({
           <div style={{ fontSize: 9, color: '#e0e0f0' }}>{Math.round(masterVolume * 100)}%</div>
         </div>
 
-        <div style={{ flex: '0 0 56px', display: 'flex', alignItems: 'stretch' }}>
+        <div style={{ flex: '0 0 56px', alignSelf: 'stretch' }}>
           <VerticalWaveform
             deck="B"
             waveform={deckBWave.waveform}
@@ -504,22 +507,15 @@ export default function Mixer({
           />
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, alignSelf: 'flex-end' }}>
-          <div style={{ fontSize: 9, color: '#0088ff', letterSpacing: '0.08em', fontWeight: 700 }}>VOL B</div>
-          <Knob
-            label="VOL"
-            value={deckBVolume}
-            onChange={(v) => setDeckVolume('B', v)}
-            accent="#0088ff"
-          />
-        </div>
-      </div>
-
-      {/* Row 2: EQ A | spacer | EQ B */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <EQStrip deck="A" eq={deckAEQ} setEQ={setEQ} accent="#00ff88" vuBarRefs={vuABarRefs} />
-        <div style={{ flex: 1 }} />
-        <EQStrip deck="B" eq={deckBEQ} setEQ={setEQ} accent="#0088ff" vuBarRefs={vuBBarRefs} />
+        <EQStrip
+          deck="B"
+          eq={deckBEQ}
+          setEQ={setEQ}
+          accent="#0088ff"
+          vuBarRefs={vuBBarRefs}
+          volValue={deckBVolume}
+          onVolChange={(v) => setDeckVolume('B', v)}
+        />
       </div>
 
       {/* Row 3: Crossfader — centre third only */}
