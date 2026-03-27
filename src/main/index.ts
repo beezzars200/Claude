@@ -97,16 +97,27 @@ app.whenReady().then(() => {
   ipcMain.handle('audio:getMetadata', async (_event, filePath: string) => {
     try {
       const mm = require('music-metadata')
-      const metadata = await mm.parseFile(filePath, { skipCovers: true })
+      const metadata = await mm.parseFile(filePath, { skipCovers: false })
+
+      let albumArt: string | null = null
+      const pictures = metadata.common.picture
+      if (pictures && pictures.length > 0) {
+        const pic = pictures[0]
+        const mimeType = pic.format.includes('/') ? pic.format : `image/${pic.format}`
+        const base64 = Buffer.from(pic.data).toString('base64')
+        albumArt = `data:${mimeType};base64,${base64}`
+      }
+
       return {
         title: metadata.common.title ?? null,
         artist: metadata.common.artist ?? null,
         album: metadata.common.album ?? null,
         duration: metadata.format.duration ?? null,
-        bpm: metadata.common.bpm ?? null
+        bpm: metadata.common.bpm ?? null,
+        albumArt
       }
     } catch {
-      return { title: null, artist: null, album: null, duration: null, bpm: null }
+      return { title: null, artist: null, album: null, duration: null, bpm: null, albumArt: null }
     }
   })
 

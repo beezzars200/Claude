@@ -12,6 +12,7 @@ export interface Track {
 
 export interface DeckState {
   track: Track | null
+  albumArt: string | null
   isPlaying: boolean
   isCued: boolean
   volume: number
@@ -83,10 +84,11 @@ export interface AppStore {
 
 const defaultDeck: DeckState = {
   track: null,
+  albumArt: null,
   isPlaying: false,
   isCued: false,
   volume: 0.8,
-  pitch: 0,
+  pitch: 0.5,
   bpm: 0,
   eqLow: 0,
   eqMid: 0,

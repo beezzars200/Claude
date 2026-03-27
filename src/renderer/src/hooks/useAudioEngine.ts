@@ -13,6 +13,7 @@ interface DeckNodes {
   startOffset: number
   isPlaying: boolean
   analyser: AnalyserNode
+  playbackRate: number
 }
 
 interface AudioEngineRef {
@@ -69,7 +70,8 @@ function createDeckNodes(ctx: AudioContext, masterGain: GainNode, recorderDest: 
     startTime: 0,
     startOffset: 0,
     isPlaying: false,
-    analyser
+    analyser,
+    playbackRate: 1.0
   }
 }
 
@@ -151,7 +153,7 @@ export function useAudioEngine() {
 
       if (eng.deckA && eng.deckA.isPlaying && eng.context) {
         const elapsed = eng.context.currentTime - eng.deckA.startTime
-        const currentTime = Math.min(eng.deckA.startOffset + elapsed, eng.deckA.buffer?.duration || 0)
+        const currentTime = Math.min(eng.deckA.startOffset + elapsed * eng.deckA.playbackRate, eng.deckA.buffer?.duration || 0)
         setDeckA({ currentTime })
 
         if (eng.deckA.buffer && currentTime >= eng.deckA.buffer.duration) {
@@ -162,7 +164,7 @@ export function useAudioEngine() {
 
       if (eng.deckB && eng.deckB.isPlaying && eng.context) {
         const elapsed = eng.context.currentTime - eng.deckB.startTime
-        const currentTime = Math.min(eng.deckB.startOffset + elapsed, eng.deckB.buffer?.duration || 0)
+        const currentTime = Math.min(eng.deckB.startOffset + elapsed * eng.deckB.playbackRate, eng.deckB.buffer?.duration || 0)
         setDeckB({ currentTime })
 
         if (eng.deckB.buffer && currentTime >= eng.deckB.buffer.duration) {
@@ -190,10 +192,12 @@ export function useAudioEngine() {
         // Fetch ID3 metadata first (fast — just reads tags, no audio decode)
         let artist: string | undefined
         let title: string | undefined
+        let albumArt: string | null = null
         try {
           const meta = await window.api.getMetadata(fileUrl)
           artist = meta.artist ?? undefined
           title = meta.title ?? undefined
+          albumArt = meta.albumArt ?? null
         } catch { /* ignore — metadata is optional */ }
 
         const displayName = title ? (artist ? `${artist} - ${title}` : title) : trackName
@@ -203,7 +207,7 @@ export function useAudioEngine() {
         const updatedTrack: Track = currentDeck.track
           ? { ...currentDeck.track, name: displayName, artist, title }
           : { id: fileUrl, name: displayName, filePath: fileUrl, fileUrl, artist, title }
-        setter({ track: updatedTrack })
+        setter({ track: updatedTrack, albumArt })
 
         // Read and decode audio
         const arrayBuffer = await window.api.readAudioFile(fileUrl)
@@ -343,6 +347,7 @@ export function useAudioEngine() {
       const source = eng.context.createBufferSource()
       source.buffer = deckNodes.buffer
       source.connect(deckNodes.gainNode)
+      source.playbackRate.value = deckNodes.playbackRate
 
       const offset = Math.min(deckNodes.startOffset, deckNodes.buffer.duration - 0.01)
       source.start(0, offset)
@@ -367,7 +372,7 @@ export function useAudioEngine() {
 
       const elapsed = eng.context.currentTime - deckNodes.startTime
       deckNodes.startOffset = Math.min(
-        deckNodes.startOffset + elapsed,
+        deckNodes.startOffset + elapsed * deckNodes.playbackRate,
         deckNodes.buffer?.duration || 0
       )
 
@@ -412,6 +417,18 @@ export function useAudioEngine() {
     deckNodes.gainNode.gain.value = volume
     const setter = deck === 'A' ? setDeckA : setDeckB
     setter({ volume })
+  }, [setDeckA, setDeckB])
+
+  // Pitch: value 0–1 where 0.5 = normal speed, 0 = -10%, 1 = +10%
+  const setPitch = useCallback((deck: 'A' | 'B', value: number) => {
+    const eng = engineRef.current
+    const deckNodes = deck === 'A' ? eng.deckA : eng.deckB
+    if (!deckNodes) return
+    const rate = 1.0 + (value - 0.5) * 0.2
+    deckNodes.playbackRate = rate
+    if (deckNodes.source) deckNodes.source.playbackRate.value = rate
+    const setter = deck === 'A' ? setDeckA : setDeckB
+    setter({ pitch: value })
   }, [setDeckA, setDeckB])
 
   const setEQ = useCallback(
@@ -562,6 +579,7 @@ export function useAudioEngine() {
     pauseDeck,
     cueDeck,
     setDeckVolume,
+    setPitch,
     setEQ,
     updateCrossfader,
     updateMasterVolume,

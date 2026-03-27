@@ -11,6 +11,7 @@ interface DeckProps {
     getWaveformData: (deck: 'A' | 'B') => Uint8Array | null
     initAudio: () => void
     loadTrack: (deck: 'A' | 'B', fileUrl: string, trackName: string) => Promise<void>
+    setPitch: (deck: 'A' | 'B', value: number) => void
   }
 }
 
@@ -379,6 +380,121 @@ function TransportColumn({ isPlaying, isLoaded, accent, onPlay, onPause, onCue, 
   )
 }
 
+// ----- Vertical Pitch/Tempo Slider -----
+
+interface VerticalSliderProps {
+  value: number        // 0–1, 0.5 = centre (0%)
+  onChange: (v: number) => void
+  accent: string
+  label?: string
+  height?: number
+}
+
+function VerticalSlider({ value, onChange, accent, label = 'TEMPO', height = 110 }: VerticalSliderProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const startY = useRef<number | null>(null)
+  const startVal = useRef(value)
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault()
+    startY.current = e.clientY
+    startVal.current = value
+    const trackH = containerRef.current?.offsetHeight ?? height
+    const onMove = (me: MouseEvent) => {
+      if (startY.current === null) return
+      const delta = (startY.current - me.clientY) / trackH
+      onChange(Math.max(0, Math.min(1, startVal.current + delta)))
+    }
+    const onUp = () => {
+      startY.current = null
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
+
+  const onDoubleClick = () => onChange(0.5)   // double-click to reset to centre
+
+  const capW = 38
+  const capH = 20
+  const trackW = 8
+  const pct = Math.round((value - 0.5) * 20)
+  const atCenter = Math.abs(value - 0.5) < 0.012
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+      <div style={{ fontSize: 9, color: '#6666aa', letterSpacing: '0.08em', fontWeight: 700 }}>{label}</div>
+      <div
+        ref={containerRef}
+        onMouseDown={onMouseDown}
+        onDoubleClick={onDoubleClick}
+        style={{ position: 'relative', height, width: capW, cursor: 'ns-resize', userSelect: 'none' }}
+      >
+        {/* Track groove */}
+        <div style={{
+          position: 'absolute',
+          left: '50%',
+          top: 0,
+          bottom: 0,
+          width: trackW,
+          transform: 'translateX(-50%)',
+          borderRadius: 4,
+          background: '#0a0a14',
+          boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.9)'
+        }}>
+          {/* Fill from centre to cap */}
+          {!atCenter && (
+            <div style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              borderRadius: 4,
+              background: value > 0.5
+                ? `linear-gradient(to top, ${accent}55, ${accent}99)`
+                : `linear-gradient(to bottom, ${accent}55, ${accent}99)`,
+              top: value > 0.5 ? `${(1 - value) * 100}%` : '50%',
+              height: `${Math.abs(value - 0.5) * 100}%`
+            }} />
+          )}
+          {/* Centre notch */}
+          <div style={{
+            position: 'absolute',
+            left: 0, right: 0,
+            top: '50%',
+            height: 1,
+            background: accent + '66',
+            transform: 'translateY(-50%)'
+          }} />
+        </div>
+        {/* Cap */}
+        <div style={{
+          position: 'absolute',
+          left: '50%',
+          top: `${(1 - value) * 100}%`,
+          transform: 'translate(-50%, -50%)',
+          width: capW,
+          height: capH,
+          borderRadius: 4,
+          background: 'linear-gradient(to bottom, #3a3a4e, #28283a, #3a3a4e)',
+          border: `1px solid ${atCenter ? '#4a4a6a' : accent}`,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.07)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 2,
+          pointerEvents: 'none'
+        }}>
+          <div style={{ width: 16, height: 2, background: atCenter ? '#5a5a7a' : accent, borderRadius: 1 }} />
+        </div>
+      </div>
+      <div style={{ fontSize: 10, color: atCenter ? '#5a5a7a' : accent, fontFamily: 'monospace' }}>
+        {pct >= 0 ? '+' : ''}{pct}%
+      </div>
+    </div>
+  )
+}
+
 export default function Deck({ deck, audioEngine }: DeckProps) {
   const { playDeck, pauseDeck, cueDeck, seekDeck, initAudio, loadTrack } = audioEngine
   const deckState = useStore((s) => (deck === 'A' ? s.deckA : s.deckB))
@@ -512,6 +628,81 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
     await audioEngine.loadTrack(deck, track.fileUrl, track.name)
   }
 
+  // Side panel: DECK label + BPM, album art, tempo slider
+  const sidePanel = (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: 6,
+      flexShrink: 0,
+      width: 96,
+      alignSelf: 'flex-start',
+      paddingTop: 2
+    }}>
+      {/* DECK label + BPM */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+        <div style={{
+          background: accent,
+          color: '#0a0a10',
+          borderRadius: 4,
+          padding: '2px 10px',
+          fontSize: 12,
+          fontWeight: 800,
+          letterSpacing: '0.1em'
+        }}>
+          DECK {deck}
+        </div>
+        {deckState.bpm > 0 && (
+          <div style={{ fontSize: 11, color: '#8888aa' }}>
+            <span style={{ color: accent, fontWeight: 700 }}>{deckState.bpm}</span>
+            <span style={{ marginLeft: 2 }}>BPM</span>
+          </div>
+        )}
+      </div>
+
+      {/* Album art */}
+      <div style={{
+        width: 80,
+        height: 80,
+        borderRadius: 6,
+        overflow: 'hidden',
+        border: `1px solid ${accent}40`,
+        flexShrink: 0,
+        background: '#0a0a14',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        {deckState.albumArt ? (
+          <img
+            src={deckState.albumArt}
+            alt="Album art"
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+        ) : (
+          <span style={{
+            fontSize: 36,
+            fontWeight: 900,
+            color: accent + '33',
+            fontFamily: 'Georgia, serif',
+            userSelect: 'none',
+            lineHeight: 1
+          }}>K</span>
+        )}
+      </div>
+
+      {/* Tempo slider */}
+      <VerticalSlider
+        value={deckState.pitch}
+        onChange={(v) => audioEngine.setPitch(deck, v)}
+        accent={accent}
+        label="TEMPO"
+        height={100}
+      />
+    </div>
+  )
+
   return (
     <div
       style={{
@@ -523,11 +714,12 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
         flexDirection: 'row',
         height: '100%',
         gap: 8,
-        alignItems: 'center',
+        alignItems: 'flex-start',
         boxShadow: 'none',
         transition: 'border-color 0.3s'
       }}
     >
+      {/* Deck A: Transport + Platter on left */}
       {deck === 'A' && (
         <TransportColumn
           deck={deck}
@@ -540,105 +732,88 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
           onStop={() => { pauseDeck(deck); seekDeck(deck, 0) }}
         />
       )}
-
       {deck === 'A' && (
         <Platter isPlaying={deckState.isPlaying} accent={accent} size={150} />
       )}
 
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {/* Top large waveform */}
-        <canvas
-          ref={topCanvasRef}
-          width={1200}
-          height={176}
-          style={{
-            borderRadius: 6,
-            cursor: deckState.isLoaded ? 'crosshair' : 'default',
-            width: '100%',
-            height: 88
-          }}
-          onClick={handleSeek}
-        />
+      {/* Main content column */}
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
 
-        {/* Deck label */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div
-              style={{
-                background: accent,
-                color: '#0a0a10',
-                borderRadius: 4,
-                padding: '2px 10px',
-                fontSize: 13,
-                fontWeight: 800,
-                letterSpacing: '0.1em'
-              }}
-            >
-              DECK {deck}
-            </div>
-            {deckState.bpm > 0 && (
-              <div style={{ fontSize: 12, color: '#8888aa' }}>
-                <span style={{ color: accent, fontWeight: 700 }}>{deckState.bpm}</span>
-                <span style={{ marginLeft: 2 }}>BPM</span>
-              </div>
-            )}
-          </div>
-          <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'monospace', color: accent, letterSpacing: 1 }}>
-            {formatTime(deckState.currentTime)}
-            <span style={{ color: '#3a3a5a', fontSize: 13, margin: '0 3px' }}>/</span>
-            <span style={{ color: '#6666aa', fontSize: 13 }}>{formatTime(deckState.duration)}</span>
-          </div>
-        </div>
-
-        {/* Drop zone */}
+        {/* Track name / drop zone */}
         <div
           onDrop={handleDrop}
           onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
           onDragLeave={() => setIsDragOver(false)}
           style={{
-            border: `1px dashed ${isDragOver ? accent : '#3a3a5a'}`,
+            border: `1px dashed ${isDragOver ? accent : (deckState.track ? accent + '22' : '#3a3a5a')}`,
             borderRadius: 6,
-            padding: '6px 10px',
-            background: isDragOver ? `${accent}12` : '#0f0f18',
+            padding: '5px 10px',
+            background: isDragOver ? `${accent}12` : (deckState.track ? `${accent}08` : '#0f0f18'),
             transition: 'all 0.15s',
-            minHeight: 36,
+            minHeight: 40,
             display: 'flex',
-            alignItems: 'center',
+            flexDirection: 'column',
             justifyContent: 'center',
-            fontSize: 11,
-            color: deckState.track ? '#e0e0f0' : (isDragOver ? accent : '#444460'),
             overflow: 'hidden'
           }}
         >
           {deckState.track ? (
-            <div style={{ overflow: 'hidden', width: '100%' }}>
-              <div style={{ fontSize: 12, color: '#e0e0f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#e0e0f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {deckState.track.title ?? deckState.track.name}
               </div>
               {deckState.track.artist && (
-                <div style={{ fontSize: 10, color: '#8888aa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ fontSize: 11, color: '#8888aa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>
                   {deckState.track.artist}
                 </div>
               )}
+            </>
+          ) : (
+            <div style={{ fontSize: 11, color: isDragOver ? accent : '#444460', textAlign: 'center' }}>
+              Drop track → Deck {deck}
             </div>
-          ) : `Drop track → Deck ${deck}`}
+          )}
         </div>
 
-        {/* Scrubber */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        {/* Waveform — full width of content column */}
+        <canvas
+          ref={topCanvasRef}
+          width={1200}
+          height={176}
+          style={{
+            width: '100%',
+            height: 88,
+            borderRadius: 6,
+            cursor: deckState.isLoaded ? 'crosshair' : 'default',
+            display: 'block'
+          }}
+          onClick={handleSeek}
+        />
+
+        {/* Time display + scrubber */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'monospace', color: accent, letterSpacing: 1, flexShrink: 0 }}>
+            {formatTime(deckState.currentTime)}
+          </div>
           <Scrubber
             value={deckState.currentTime}
             max={deckState.duration}
             onChange={(v) => seekDeck(deck, v)}
             accent={accent}
           />
+          <div style={{ fontSize: 12, color: '#5a5a7a', fontFamily: 'monospace', flexShrink: 0 }}>
+            {formatTime(deckState.duration)}
+          </div>
         </div>
       </div>
 
+      {/* Side panel always on the right of main content */}
+      {sidePanel}
+
+      {/* Deck B: Platter + Transport on right */}
       {deck === 'B' && (
         <Platter isPlaying={deckState.isPlaying} accent={accent} size={150} />
       )}
-
       {deck === 'B' && (
         <TransportColumn
           deck={deck}
@@ -651,7 +826,6 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
           onStop={() => { pauseDeck(deck); seekDeck(deck, 0) }}
         />
       )}
-
     </div>
   )
 }

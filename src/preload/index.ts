@@ -22,7 +22,7 @@ const api = {
   readDir: (dirPath: string): Promise<Array<{ name: string; isDirectory: boolean; path: string }>> =>
     ipcRenderer.invoke('fs:readDir', dirPath),
 
-  getMetadata: (filePath: string): Promise<{ title: string | null; artist: string | null; album: string | null; duration: number | null; bpm: number | null }> =>
+  getMetadata: (filePath: string): Promise<{ title: string | null; artist: string | null; album: string | null; duration: number | null; bpm: number | null; albumArt: string | null }> =>
     ipcRenderer.invoke('audio:getMetadata', filePath),
 }
 
