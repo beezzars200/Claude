@@ -21,6 +21,7 @@ export interface DeckState {
   currentTime: number
   duration: number
   isLoaded: boolean
+  waveform: Float32Array | null
 }
 
 export interface BroadcastState {
@@ -87,7 +88,8 @@ const defaultDeck: DeckState = {
   eqHigh: 0,
   currentTime: 0,
   duration: 0,
-  isLoaded: false
+  isLoaded: false,
+  waveform: null
 }
 
 export const useStore = create<AppStore>((set) => ({

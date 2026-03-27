@@ -205,13 +205,17 @@ export function useAudioEngine() {
         // Estimate BPM (simple approximation)
         const bpm = estimateBPM(audioBuffer)
 
+        // Pre-render waveform
+        const waveform = computeWaveform(audioBuffer)
+
         const setter = deck === 'A' ? setDeckA : setDeckB
         setter({
           isLoaded: true,
           isPlaying: false,
           currentTime: 0,
           duration: audioBuffer.duration,
-          bpm
+          bpm,
+          waveform
         })
       } catch (err) {
         console.error('Failed to load track:', err)
@@ -219,6 +223,21 @@ export function useAudioEngine() {
     },
     [initAudio, setDeckA, setDeckB]
   )
+
+  // Pre-render full waveform for static display
+  function computeWaveform(buffer: AudioBuffer, numPoints: number = 800): Float32Array {
+    const channelData = buffer.getChannelData(0)
+    const blockSize = Math.floor(channelData.length / numPoints)
+    const waveform = new Float32Array(numPoints)
+    for (let i = 0; i < numPoints; i++) {
+      let sum = 0
+      for (let j = 0; j < blockSize; j++) {
+        sum += Math.abs(channelData[i * blockSize + j])
+      }
+      waveform[i] = sum / blockSize
+    }
+    return waveform
+  }
 
   // Estimate BPM from audio buffer (simplified)
   function estimateBPM(buffer: AudioBuffer): number {

@@ -92,13 +92,13 @@ export default function App() {
       {/* Main area */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden', padding: '10px', gap: '10px' }}>
         {/* Deck A */}
-        <div style={{ flex: '0 0 340px' }}>
+        <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
           <Deck deck="A" audioEngine={audioEngine} />
         </div>
 
         {/* Center column: Mixer + bottom panel */}
-        <div style={{ flex: '0 0 240px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <Mixer audioEngine={audioEngine} />
+        <div style={{ flex: '0 0 220px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <Mixer audioEngine={audioEngine} getAnalyserData={audioEngine.getAnalyserData} />
           <div style={{ flex: 1, overflow: 'hidden' }}>
             {activeTab === 'library' && <Library audioEngine={audioEngine} />}
             {activeTab === 'broadcast' && <Broadcast />}
@@ -107,7 +107,7 @@ export default function App() {
         </div>
 
         {/* Deck B */}
-        <div style={{ flex: '0 0 340px' }}>
+        <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
           <Deck deck="B" audioEngine={audioEngine} />
         </div>
       </div>

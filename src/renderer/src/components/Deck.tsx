@@ -99,8 +99,175 @@ function Knob({ label, value, onChange, accent }: KnobProps) {
   )
 }
 
+// ----- Vertical Fader (premium custom drag-based) -----
+
+interface VerticalFaderProps {
+  value: number
+  onChange: (v: number) => void
+  accent: string
+  height?: number
+}
+
+function VerticalFader({ value, onChange, accent, height = 90 }: VerticalFaderProps) {
+  const startY = useRef<number | null>(null)
+  const startVal = useRef(value)
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault()
+    startY.current = e.clientY
+    startVal.current = value
+    const onMove = (me: MouseEvent) => {
+      if (startY.current === null) return
+      const delta = (startY.current - me.clientY) / height
+      const next = Math.max(0, Math.min(1, startVal.current + delta))
+      onChange(next)
+    }
+    const onUp = () => {
+      startY.current = null
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
+
+  const capHeight = 10
+  const trackInner = height - capHeight
+  const capTop = (1 - value) * trackInner
+
+  return (
+    <div
+      style={{
+        position: 'relative',
+        width: 8,
+        height,
+        borderRadius: 4,
+        background: '#0d0d18',
+        boxShadow: 'inset 0 1px 4px rgba(0,0,0,0.8)',
+        cursor: 'ns-resize',
+        userSelect: 'none'
+      }}
+      onMouseDown={onMouseDown}
+    >
+      {/* Fill from bottom */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          width: '100%',
+          height: `${value * 100}%`,
+          borderRadius: 4,
+          background: `linear-gradient(to top, ${accent}cc, ${accent}44)`,
+          pointerEvents: 'none'
+        }}
+      />
+      {/* Cap */}
+      <div
+        style={{
+          position: 'absolute',
+          left: '50%',
+          top: capTop,
+          transform: 'translateX(-50%)',
+          width: 28,
+          height: capHeight,
+          borderRadius: 3,
+          background: '#2a2a3a',
+          border: `1px solid ${accent}`,
+          boxShadow: '0 2px 4px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)',
+          cursor: 'ns-resize',
+          pointerEvents: 'none'
+        }}
+      />
+    </div>
+  )
+}
+
+// ----- Styled progress scrubber -----
+
+interface ScrubberProps {
+  value: number
+  max: number
+  onChange: (v: number) => void
+  accent: string
+}
+
+function Scrubber({ value, max, onChange, accent }: ScrubberProps) {
+  const trackRef = useRef<HTMLDivElement>(null)
+
+  const getPositionFromEvent = (e: MouseEvent | React.MouseEvent): number => {
+    const el = trackRef.current
+    if (!el || max === 0) return 0
+    const rect = el.getBoundingClientRect()
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+    return ratio * max
+  }
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault()
+    onChange(getPositionFromEvent(e))
+    const onMove = (me: MouseEvent) => {
+      onChange(getPositionFromEvent(me))
+    }
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
+
+  const progress = max > 0 ? value / max : 0
+
+  return (
+    <div
+      ref={trackRef}
+      onMouseDown={onMouseDown}
+      style={{
+        flex: 1,
+        height: 6,
+        borderRadius: 3,
+        background: '#0d0d18',
+        boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.8)',
+        cursor: 'pointer',
+        position: 'relative',
+        userSelect: 'none'
+      }}
+    >
+      {/* Fill */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: `${progress * 100}%`,
+          height: '100%',
+          borderRadius: 3,
+          background: `linear-gradient(to right, ${accent}99, ${accent}cc)`,
+          pointerEvents: 'none'
+        }}
+      />
+      {/* Thumb */}
+      <div
+        style={{
+          position: 'absolute',
+          top: '50%',
+          left: `${progress * 100}%`,
+          transform: 'translate(-50%, -50%)',
+          width: 10,
+          height: 10,
+          borderRadius: '50%',
+          background: accent,
+          boxShadow: `0 0 6px ${accent}80`,
+          pointerEvents: 'none'
+        }}
+      />
+    </div>
+  )
+}
+
 export default function Deck({ deck, audioEngine }: DeckProps) {
-  const { playDeck, pauseDeck, cueDeck, setDeckVolume, setEQ, seekDeck, getWaveformData } = audioEngine
+  const { playDeck, pauseDeck, cueDeck, setDeckVolume, setEQ, seekDeck } = audioEngine
   const deckState = useStore((s) => (deck === 'A' ? s.deckA : s.deckB))
   const accent = ACCENT[deck]
   const bg = BG[deck]
@@ -108,7 +275,7 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animRef = useRef<number>(0)
 
-  // Waveform animation
+  // Waveform animation — pre-rendered static waveform with moving playhead
   const drawWaveform = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -117,29 +284,46 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
 
     const W = canvas.width
     const H = canvas.height
+
     ctx.clearRect(0, 0, W, H)
     ctx.fillStyle = bg
     ctx.fillRect(0, 0, W, H)
 
-    const data = getWaveformData(deck)
-    if (data && deckState.isPlaying) {
-      ctx.beginPath()
-      ctx.strokeStyle = accent
-      ctx.lineWidth = 1.5
-      ctx.globalAlpha = 0.8
-      const sliceWidth = W / data.length
-      let x = 0
-      for (let i = 0; i < data.length; i++) {
-        const v = data[i] / 128.0
-        const y = (v * H) / 2
-        if (i === 0) ctx.moveTo(x, y)
-        else ctx.lineTo(x, y)
-        x += sliceWidth
+    const waveform = deckState.waveform
+    if (waveform && waveform.length > 0) {
+      const numPoints = waveform.length
+      const progress = deckState.duration > 0 ? deckState.currentTime / deckState.duration : 0
+      const playedBars = Math.floor(progress * numPoints)
+
+      const barWidth = W / numPoints
+
+      for (let i = 0; i < numPoints; i++) {
+        const barH = Math.max(2, waveform[i] * H * 0.9)
+        const x = i * barWidth
+        const y = (H - barH) / 2
+
+        if (i < playedBars) {
+          ctx.fillStyle = accent + '99' // played: accent at ~60% opacity
+        } else {
+          ctx.fillStyle = '#2a2a3a' // unplayed: dark
+        }
+        ctx.fillRect(x, y, Math.max(1, barWidth - 0.5), barH)
       }
-      ctx.stroke()
-      ctx.globalAlpha = 1
+
+      // Playhead line
+      const playheadX = Math.floor(progress * W)
+      ctx.fillStyle = accent
+      ctx.fillRect(playheadX - 1, 0, 2, H)
+
+      // Glow around playhead
+      const gradient = ctx.createLinearGradient(playheadX - 12, 0, playheadX + 12, 0)
+      gradient.addColorStop(0, 'transparent')
+      gradient.addColorStop(0.5, accent + '30')
+      gradient.addColorStop(1, 'transparent')
+      ctx.fillStyle = gradient
+      ctx.fillRect(playheadX - 12, 0, 24, H)
     } else {
-      // Draw flat line
+      // No waveform loaded — draw flat line
       ctx.beginPath()
       ctx.strokeStyle = '#2a2a3a'
       ctx.lineWidth = 1
@@ -148,18 +332,8 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
       ctx.stroke()
     }
 
-    // Progress overlay
-    if (deckState.duration > 0) {
-      const progress = deckState.currentTime / deckState.duration
-      ctx.fillStyle = `${accent}18`
-      ctx.fillRect(0, 0, W * progress, H)
-      // Playhead
-      ctx.fillStyle = accent
-      ctx.fillRect(W * progress - 1, 0, 2, H)
-    }
-
     animRef.current = requestAnimationFrame(drawWaveform)
-  }, [deck, deckState.isPlaying, deckState.currentTime, deckState.duration, accent, bg, getWaveformData])
+  }, [deck, deckState.waveform, deckState.currentTime, deckState.duration, accent, bg])
 
   useEffect(() => {
     animRef.current = requestAnimationFrame(drawWaveform)
@@ -172,8 +346,6 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
     const ratio = (e.clientX - rect.left) / rect.width
     seekDeck(deck, ratio * deckState.duration)
   }
-
-  const progress = deckState.duration > 0 ? deckState.currentTime / deckState.duration : 0
 
   return (
     <div
@@ -240,7 +412,7 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
       {/* Waveform */}
       <canvas
         ref={canvasRef}
-        width={312}
+        width={600}
         height={64}
         style={{
           borderRadius: 6,
@@ -252,21 +424,13 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
         onClick={handleSeek}
       />
 
-      {/* Progress bar */}
+      {/* Progress scrubber */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <input
-          type="range"
-          min={0}
-          max={deckState.duration || 1}
-          step={0.1}
+        <Scrubber
           value={deckState.currentTime}
-          onChange={(e) => seekDeck(deck, parseFloat(e.target.value))}
-          style={{
-            flex: 1,
-            height: 4,
-            accentColor: accent,
-            cursor: 'pointer'
-          }}
+          max={deckState.duration || 1}
+          onChange={(v) => seekDeck(deck, v)}
+          accent={accent}
         />
       </div>
 
@@ -366,24 +530,14 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
           />
         </div>
 
-        {/* Volume fader */}
+        {/* Volume fader — premium custom vertical fader */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
           <div style={{ fontSize: 9, color: '#8888aa', letterSpacing: '0.06em' }}>VOL</div>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
+          <VerticalFader
             value={deckState.volume}
-            onChange={(e) => setDeckVolume(deck, parseFloat(e.target.value))}
-            style={{
-              writingMode: 'vertical-lr' as const,
-              direction: 'rtl' as const,
-              height: 80,
-              width: 20,
-              accentColor: accent,
-              cursor: 'pointer'
-            } as React.CSSProperties}
+            onChange={(v) => setDeckVolume(deck, v)}
+            accent={accent}
+            height={90}
           />
           <div style={{ fontSize: 9, color: accent }}>
             {Math.round(deckState.volume * 100)}%
