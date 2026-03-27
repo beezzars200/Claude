@@ -146,9 +146,8 @@ export default function Library({ audioEngine }: LibraryProps) {
 
   const handleDragStart = (e: React.DragEvent, entry: DirEntry) => {
     if (entry.isDirectory) return
-    // Add to library first so the track is available when dropped
-    addFileToLibrary(entry)
     e.dataTransfer.setData('trackId', entry.path)
+    e.dataTransfer.setData('trackName', entry.name.replace(/\.[^/.]+$/, ''))
   }
 
   const handleTrackDragStart = (e: React.DragEvent, track: Track) => {

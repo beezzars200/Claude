@@ -89,8 +89,8 @@ export default function App() {
             deckBEQ={{ low: deckB.eqLow, mid: deckB.eqMid, high: deckB.eqHigh }}
             deckAVolume={deckA.volume}
             deckBVolume={deckB.volume}
-            deckAWave={{ waveform: deckA.waveform, waveformHF: deckA.waveformHF, currentTime: deckA.currentTime, duration: deckA.duration }}
-            deckBWave={{ waveform: deckB.waveform, waveformHF: deckB.waveformHF, currentTime: deckB.currentTime, duration: deckB.duration }}
+            deckAWave={{ waveform: deckA.waveform, waveformLF: deckA.waveformLF, waveformMF: deckA.waveformMF, waveformHF: deckA.waveformHF, currentTime: deckA.currentTime, duration: deckA.duration }}
+            deckBWave={{ waveform: deckB.waveform, waveformLF: deckB.waveformLF, waveformMF: deckB.waveformMF, waveformHF: deckB.waveformHF, currentTime: deckB.currentTime, duration: deckB.duration }}
           />
         </div>
 

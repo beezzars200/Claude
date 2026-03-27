@@ -455,9 +455,9 @@ export default function Mixer({
         height: '100%'
       }}
     >
-      {/* Row 1: Vol Knob A | spacer | Vol Knob B */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+      {/* Row 1: VOL A | VertWave A | Master VU + Knob | VertWave B | VOL B */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, alignSelf: 'flex-end' }}>
           <div style={{ fontSize: 9, color: '#00ff88', letterSpacing: '0.08em', fontWeight: 700 }}>VOL A</div>
           <Knob
             label="VOL"
@@ -466,7 +466,45 @@ export default function Mixer({
             accent="#00ff88"
           />
         </div>
-<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+
+        <div style={{ flex: '0 0 56px', display: 'flex', alignItems: 'stretch' }}>
+          <VerticalWaveform
+            deck="A"
+            waveform={deckAWave.waveform}
+            waveformLF={deckAWave.waveformLF}
+            waveformMF={deckAWave.waveformMF}
+            waveformHF={deckAWave.waveformHF}
+            currentTime={deckAWave.currentTime}
+            duration={deckAWave.duration}
+            accent="#00ff88"
+          />
+        </div>
+
+        {/* Master VU + Knob */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+          <div style={{ fontSize: 9, color: '#8888aa', letterSpacing: '0.1em' }}>MASTER</div>
+          <div style={{ display: 'flex', gap: 3 }}>
+            <VUMeter color="#ffffff" barRefs={masterLBarRefs} bars={16} barWidth={12} barHeight={5} />
+            <VUMeter color="#ffffff" barRefs={masterRBarRefs} bars={16} barWidth={12} barHeight={5} />
+          </div>
+          <Knob label="VOL" value={masterVolume} onChange={updateMasterVolume} accent="#ffffff" />
+          <div style={{ fontSize: 9, color: '#e0e0f0' }}>{Math.round(masterVolume * 100)}%</div>
+        </div>
+
+        <div style={{ flex: '0 0 56px', display: 'flex', alignItems: 'stretch' }}>
+          <VerticalWaveform
+            deck="B"
+            waveform={deckBWave.waveform}
+            waveformLF={deckBWave.waveformLF}
+            waveformMF={deckBWave.waveformMF}
+            waveformHF={deckBWave.waveformHF}
+            currentTime={deckBWave.currentTime}
+            duration={deckBWave.duration}
+            accent="#0088ff"
+          />
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, alignSelf: 'flex-end' }}>
           <div style={{ fontSize: 9, color: '#0088ff', letterSpacing: '0.08em', fontWeight: 700 }}>VOL B</div>
           <Knob
             label="VOL"
@@ -477,52 +515,11 @@ export default function Mixer({
         </div>
       </div>
 
-      {/* Row 2: EQ A + VU A | Vert Wave A | Master VU + Knob | Vert Wave B | VU B + EQ B */}
-      <div style={{ display: 'flex', flex: 1, minHeight: 0, gap: 6, alignItems: 'stretch' }}>
-        {/* EQ A strip (knobs left, VU right) */}
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <EQStrip deck="A" eq={deckAEQ} setEQ={setEQ} accent="#00ff88" vuBarRefs={vuABarRefs} />
-        </div>
-
-        {/* Vertical waveform A */}
-        <div style={{ flex: '0 0 56px', display: 'flex', alignItems: 'stretch' }}>
-          <VerticalWaveform
-            deck="A"
-            waveform={deckAWave.waveform}
-            waveformHF={deckAWave.waveformHF}
-            currentTime={deckAWave.currentTime}
-            duration={deckAWave.duration}
-            accent="#00ff88"
-          />
-        </div>
-
-        {/* Master VU + Knob */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
-          <div style={{ fontSize: 9, color: '#8888aa', letterSpacing: '0.1em' }}>MASTER</div>
-          <div style={{ display: 'flex', gap: 3 }}>
-            <VUMeter color="#ffffff" barRefs={masterLBarRefs} bars={16} barWidth={12} barHeight={5} />
-            <VUMeter color="#ffffff" barRefs={masterRBarRefs} bars={16} barWidth={12} barHeight={5} />
-          </div>
-          <Knob label="VOL" value={masterVolume} onChange={updateMasterVolume} accent="#ffffff" />
-          <div style={{ fontSize: 9, color: '#e0e0f0' }}>{Math.round(masterVolume * 100)}%</div>
-        </div>
-
-        {/* Vertical waveform B */}
-        <div style={{ flex: '0 0 56px', display: 'flex', alignItems: 'stretch' }}>
-          <VerticalWaveform
-            deck="B"
-            waveform={deckBWave.waveform}
-            waveformHF={deckBWave.waveformHF}
-            currentTime={deckBWave.currentTime}
-            duration={deckBWave.duration}
-            accent="#0088ff"
-          />
-        </div>
-
-        {/* EQ B strip (VU left, knobs right) */}
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <EQStrip deck="B" eq={deckBEQ} setEQ={setEQ} accent="#0088ff" vuBarRefs={vuBBarRefs} />
-        </div>
+      {/* Row 2: EQ A | spacer | EQ B */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <EQStrip deck="A" eq={deckAEQ} setEQ={setEQ} accent="#00ff88" vuBarRefs={vuABarRefs} />
+        <div style={{ flex: 1 }} />
+        <EQStrip deck="B" eq={deckBEQ} setEQ={setEQ} accent="#0088ff" vuBarRefs={vuBBarRefs} />
       </div>
 
       {/* Row 3: Crossfader — centre third only */}
