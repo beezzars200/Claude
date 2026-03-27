@@ -107,7 +107,7 @@ app.whenReady().then(() => {
       const entries = await readdir(dirPath, { withFileTypes: true })
       const AUDIO_EXTS = new Set(['.mp3', '.wav', '.flac', '.ogg', '.aac', '.m4a', '.aiff'])
       return entries
-        .filter(e => e.isDirectory() || AUDIO_EXTS.has(require('path').extname(e.name).toLowerCase()))
+        .filter(e => !e.name.startsWith('.') && (e.isDirectory() || AUDIO_EXTS.has(require('path').extname(e.name).toLowerCase())))
         .map(e => ({
           name: e.name,
           isDirectory: e.isDirectory(),

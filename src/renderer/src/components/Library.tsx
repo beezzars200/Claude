@@ -30,6 +30,7 @@ export default function Library({ audioEngine }: LibraryProps) {
   const [entries, setEntries] = useState<DirEntry[]>([])
   const [history, setHistory] = useState<string[]>([])
   const [browserLoading, setBrowserLoading] = useState(false)
+  const [homePath, setHomePath] = useState('')
 
   // Navigate to a directory
   const navigateTo = async (path: string) => {
@@ -43,17 +44,23 @@ export default function Library({ audioEngine }: LibraryProps) {
     }
   }
 
-  // On mount: navigate to Music directory
+  // On mount: navigate to Music directory and fetch home path
   useEffect(() => {
     const init = async () => {
+      try {
+        const hp = await window.api.getHomePath()
+        setHomePath(hp)
+      } catch {
+        // ignore
+      }
       try {
         const musicPath = await window.api.getMusicPath()
         await navigateTo(musicPath)
       } catch {
         // fallback to home
         try {
-          const homePath = await window.api.getHomePath()
-          await navigateTo(homePath)
+          const hp = await window.api.getHomePath()
+          await navigateTo(hp)
         } catch {
           // ignore
         }
@@ -191,6 +198,34 @@ export default function Library({ audioEngine }: LibraryProps) {
             ←
           </button>
           <div style={{ fontSize: 9, color: '#6666aa', letterSpacing: '0.1em', flexShrink: 0 }}>FILES</div>
+        </div>
+
+        {/* Location shortcuts */}
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', flexShrink: 0 }}>
+          {[
+            { label: '🏠', path: homePath, title: 'Home' },
+            { label: '🎵', path: `${homePath}/Music`, title: 'Music' },
+            { label: '☁️', path: `${homePath}/Library/Mobile Documents/com~apple~CloudDocs`, title: 'iCloud Drive' },
+            { label: '⬇️', path: `${homePath}/Downloads`, title: 'Downloads' },
+            { label: '🖥️', path: `${homePath}/Desktop`, title: 'Desktop' },
+          ].map(({ label, path, title }) => (
+            <button
+              key={title}
+              title={title}
+              onClick={() => { if (path) { setHistory(h => [...h, currentPath]); navigateTo(path) } }}
+              style={{
+                background: '#1a1a28',
+                border: '1px solid #3a3a5a',
+                color: '#8888cc',
+                borderRadius: 4,
+                padding: '2px 6px',
+                fontSize: 12,
+                cursor: 'pointer'
+              }}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         {/* Breadcrumb */}
