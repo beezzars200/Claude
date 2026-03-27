@@ -70,7 +70,8 @@ export default function App() {
           minHeight: 0,
           overflow: 'hidden',
           padding: '8px 8px 4px 8px',
-          gap: 8
+          gap: 8,
+          alignItems: 'flex-start'
         }}
       >
         {/* Deck A */}

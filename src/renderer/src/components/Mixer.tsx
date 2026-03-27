@@ -50,6 +50,12 @@ function VerticalWaveform({ waveform, waveformHF, currentTime, duration, accent 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rafRef = useRef<number>(0)
 
+  // Refs to avoid stale closures in the rAF loop
+  const currentTimeRef = useRef(currentTime)
+  const durationRef = useRef(duration)
+  currentTimeRef.current = currentTime
+  durationRef.current = duration
+
   const draw = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -65,7 +71,7 @@ function VerticalWaveform({ waveform, waveformHF, currentTime, duration, accent 
     if (waveform && waveform.length > 0) {
       const numVisible = 120
       const barH = H / numVisible
-      const progress = duration > 0 ? currentTime / duration : 0
+      const progress = durationRef.current > 0 ? currentTimeRef.current / durationRef.current : 0
       const centerIdx = Math.floor(progress * waveform.length)
 
       for (let i = 0; i < numVisible; i++) {
@@ -103,7 +109,7 @@ function VerticalWaveform({ waveform, waveformHF, currentTime, duration, accent 
     }
 
     rafRef.current = requestAnimationFrame(draw)
-  }, [waveform, waveformHF, currentTime, duration, accent])
+  }, [waveform, waveformHF, accent])
 
   useEffect(() => {
     rafRef.current = requestAnimationFrame(draw)

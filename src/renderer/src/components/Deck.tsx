@@ -180,11 +180,128 @@ function Scrubber({ value, max, onChange, accent }: ScrubberProps) {
   )
 }
 
+// ----- Vinyl Platter -----
+
+interface PlatterProps {
+  isPlaying: boolean
+  accent: string
+  size?: number
+}
+
+function Platter({ isPlaying, accent, size = 160 }: PlatterProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const angleRef = useRef(0)
+  const rafRef = useRef<number>(0)
+  const lastTimeRef = useRef<number>(0)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const draw = (timestamp: number) => {
+      if (isPlaying) {
+        const delta = lastTimeRef.current ? timestamp - lastTimeRef.current : 0
+        angleRef.current = (angleRef.current + delta * 0.1) % 360 // ~0.1 deg/ms ≈ 33.3rpm
+      }
+      lastTimeRef.current = timestamp
+
+      const W = canvas.width
+      const H = canvas.height
+      const cx = W / 2
+      const cy = H / 2
+      const r = W / 2 - 2
+
+      ctx.clearRect(0, 0, W, H)
+
+      // Save context for rotation
+      ctx.save()
+      ctx.translate(cx, cy)
+      ctx.rotate((angleRef.current * Math.PI) / 180)
+      ctx.translate(-cx, -cy)
+
+      // Outer vinyl disc
+      ctx.beginPath()
+      ctx.arc(cx, cy, r, 0, Math.PI * 2)
+      ctx.fillStyle = '#111118'
+      ctx.fill()
+
+      // Vinyl grooves (concentric rings)
+      for (let ri = 10; ri < r - 20; ri += 6) {
+        ctx.beginPath()
+        ctx.arc(cx, cy, ri, 0, Math.PI * 2)
+        ctx.strokeStyle = `rgba(255,255,255,${ri % 12 === 0 ? 0.06 : 0.02})`
+        ctx.lineWidth = 1
+        ctx.stroke()
+      }
+
+      // Label circle (inner 35% radius)
+      const labelR = r * 0.35
+      const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, labelR)
+      gradient.addColorStop(0, accent + 'aa')
+      gradient.addColorStop(0.6, accent + '44')
+      gradient.addColorStop(1, accent + '22')
+      ctx.beginPath()
+      ctx.arc(cx, cy, labelR, 0, Math.PI * 2)
+      ctx.fillStyle = gradient
+      ctx.fill()
+      ctx.strokeStyle = accent + '60'
+      ctx.lineWidth = 1.5
+      ctx.stroke()
+
+      // Centre spindle hole
+      ctx.beginPath()
+      ctx.arc(cx, cy, 4, 0, Math.PI * 2)
+      ctx.fillStyle = '#0a0a14'
+      ctx.fill()
+
+      ctx.restore()
+
+      // Outer rim glow (non-rotating)
+      ctx.beginPath()
+      ctx.arc(cx, cy, r, 0, Math.PI * 2)
+      ctx.strokeStyle = isPlaying ? accent + '40' : '#2a2a3a'
+      ctx.lineWidth = 2
+      ctx.stroke()
+
+      rafRef.current = requestAnimationFrame(draw)
+    }
+
+    rafRef.current = requestAnimationFrame(draw)
+    return () => cancelAnimationFrame(rafRef.current)
+  }, [isPlaying, accent])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={size}
+      height={size}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        flexShrink: 0,
+        boxShadow: isPlaying
+          ? `0 0 24px ${accent}40, 0 4px 16px rgba(0,0,0,0.6)`
+          : '0 4px 16px rgba(0,0,0,0.6)',
+        transition: 'box-shadow 0.3s'
+      }}
+    />
+  )
+}
+
 export default function Deck({ deck, audioEngine }: DeckProps) {
   const { playDeck, pauseDeck, cueDeck, seekDeck } = audioEngine
   const deckState = useStore((s) => (deck === 'A' ? s.deckA : s.deckB))
   const accent = ACCENT[deck]
   const bg = BG[deck]
+
+  // Refs for stale-closure-free playhead drawing
+  const currentTimeRef = useRef(deckState.currentTime)
+  const durationRef = useRef(deckState.duration)
+  currentTimeRef.current = deckState.currentTime
+  durationRef.current = deckState.duration
 
   // Reference waveform (smaller, bottom)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -226,7 +343,7 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
     const waveformHF = deckState.waveformHF
     if (waveform && waveform.length > 0) {
       const numPoints = waveform.length
-      const progress = deckState.duration > 0 ? deckState.currentTime / deckState.duration : 0
+      const progress = durationRef.current > 0 ? currentTimeRef.current / durationRef.current : 0
       const playedBars = Math.floor(progress * numPoints)
       const barWidth = W / numPoints
 
@@ -263,7 +380,7 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
       ctx.lineTo(W, H / 2)
       ctx.stroke()
     }
-  }, [deck, deckState.waveform, deckState.waveformHF, deckState.currentTime, deckState.duration, accent, bg])
+  }, [deckState.waveform, deckState.waveformHF, accent, bg, deck])
 
   // Reference waveform animation
   const drawWaveform = useCallback(() => {
@@ -306,170 +423,181 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
         borderRadius: 12,
         padding: 14,
         display: 'flex',
-        flexDirection: 'column',
-        gap: 10,
+        flexDirection: 'row',
         height: '100%',
+        gap: 10,
+        alignItems: 'center',
         boxShadow: deckState.isPlaying ? `0 0 20px ${accent}18` : 'none',
         transition: 'border-color 0.3s, box-shadow 0.3s'
       }}
     >
-      {/* Top large waveform */}
-      <canvas
-        ref={topCanvasRef}
-        width={1200}
-        height={176}
-        style={{
-          borderRadius: 6,
-          cursor: deckState.isLoaded ? 'crosshair' : 'default',
-          width: '100%',
-          height: 88
-        }}
-        onClick={handleSeek}
-      />
+      {deck === 'A' && (
+        <Platter isPlaying={deckState.isPlaying} accent={accent} size={150} />
+      )}
 
-      {/* Deck label */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {/* Top large waveform */}
+        <canvas
+          ref={topCanvasRef}
+          width={1200}
+          height={176}
+          style={{
+            borderRadius: 6,
+            cursor: deckState.isLoaded ? 'crosshair' : 'default',
+            width: '100%',
+            height: 88
+          }}
+          onClick={handleSeek}
+        />
+
+        {/* Deck label */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div
+              style={{
+                background: accent,
+                color: '#0a0a10',
+                borderRadius: 4,
+                padding: '2px 10px',
+                fontSize: 13,
+                fontWeight: 800,
+                letterSpacing: '0.1em'
+              }}
+            >
+              DECK {deck}
+            </div>
+            {deckState.bpm > 0 && (
+              <div style={{ fontSize: 12, color: '#8888aa' }}>
+                <span style={{ color: accent, fontWeight: 700 }}>{deckState.bpm}</span>
+                <span style={{ marginLeft: 2 }}>BPM</span>
+              </div>
+            )}
+          </div>
+          <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'monospace', color: accent, letterSpacing: 1 }}>
+            {formatTime(deckState.currentTime)}
+            <span style={{ color: '#3a3a5a', fontSize: 13, margin: '0 3px' }}>/</span>
+            <span style={{ color: '#6666aa', fontSize: 13 }}>{formatTime(deckState.duration)}</span>
+          </div>
+        </div>
+
+        {/* Track name */}
+        <div
+          style={{
+            background: '#0f0f18',
+            border: '1px solid #2a2a3a',
+            borderRadius: 6,
+            padding: '6px 10px',
+            fontSize: 12,
+            color: deckState.track ? '#e0e0f0' : '#444460',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          {deckState.track?.name ?? 'No track loaded — drag from library'}
+        </div>
+
+        {/* Reference Waveform (smaller) */}
+        <canvas
+          ref={canvasRef}
+          width={600}
+          height={80}
+          style={{
+            borderRadius: 6,
+            cursor: deckState.isLoaded ? 'crosshair' : 'default',
+            border: '1px solid #2a2a3a',
+            width: '100%',
+            height: 40
+          }}
+          onClick={handleSeek}
+        />
+
+        {/* Progress scrubber */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Scrubber
+            value={deckState.currentTime}
+            max={deckState.duration || 1}
+            onChange={(v) => seekDeck(deck, v)}
+            accent={accent}
+          />
+        </div>
+
+        {/* Controls row */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+          {/* CUE */}
+          <button
+            onClick={() => cueDeck(deck)}
+            disabled={!deckState.isLoaded}
             style={{
-              background: accent,
-              color: '#0a0a10',
-              borderRadius: 4,
-              padding: '2px 10px',
-              fontSize: 13,
-              fontWeight: 800,
-              letterSpacing: '0.1em'
+              width: 44,
+              height: 44,
+              borderRadius: '50%',
+              border: '2px solid #ccaa00',
+              background: '#1a1500',
+              color: '#ffcc00',
+              cursor: deckState.isLoaded ? 'pointer' : 'not-allowed',
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: '0.05em',
+              opacity: deckState.isLoaded ? 1 : 0.4,
+              transition: 'all 0.15s'
             }}
           >
-            DECK {deck}
-          </div>
-          {deckState.bpm > 0 && (
-            <div style={{ fontSize: 12, color: '#8888aa' }}>
-              <span style={{ color: accent, fontWeight: 700 }}>{deckState.bpm}</span>
-              <span style={{ marginLeft: 2 }}>BPM</span>
-            </div>
-          )}
+            CUE
+          </button>
+
+          {/* Play / Pause */}
+          <button
+            onClick={() => deckState.isPlaying ? pauseDeck(deck) : playDeck(deck)}
+            disabled={!deckState.isLoaded}
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: '50%',
+              border: `2px solid ${accent}`,
+              background: deckState.isPlaying ? accent : bg,
+              color: deckState.isPlaying ? '#0a0a10' : accent,
+              cursor: deckState.isLoaded ? 'pointer' : 'not-allowed',
+              fontSize: 22,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity: deckState.isLoaded ? 1 : 0.4,
+              boxShadow: deckState.isPlaying ? `0 0 16px ${accent}60` : 'none',
+              transition: 'all 0.15s'
+            }}
+          >
+            {deckState.isPlaying ? '⏸' : '▶'}
+          </button>
+
+          {/* Stop */}
+          <button
+            onClick={() => { pauseDeck(deck); seekDeck(deck, 0) }}
+            disabled={!deckState.isLoaded}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 6,
+              border: '1px solid #3a3a5a',
+              background: '#1a1a24',
+              color: '#8888aa',
+              cursor: deckState.isLoaded ? 'pointer' : 'not-allowed',
+              fontSize: 14,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity: deckState.isLoaded ? 1 : 0.4,
+              transition: 'all 0.15s'
+            }}
+          >
+            ⏹
+          </button>
         </div>
-        <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'monospace', color: accent, letterSpacing: 1 }}>
-          {formatTime(deckState.currentTime)}
-          <span style={{ color: '#3a3a5a', fontSize: 13, margin: '0 3px' }}>/</span>
-          <span style={{ color: '#6666aa', fontSize: 13 }}>{formatTime(deckState.duration)}</span>
-        </div>
       </div>
 
-      {/* Track name */}
-      <div
-        style={{
-          background: '#0f0f18',
-          border: '1px solid #2a2a3a',
-          borderRadius: 6,
-          padding: '6px 10px',
-          fontSize: 12,
-          color: deckState.track ? '#e0e0f0' : '#444460',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap'
-        }}
-      >
-        {deckState.track?.name ?? 'No track loaded — drag from library'}
-      </div>
-
-      {/* Reference Waveform (smaller) */}
-      <canvas
-        ref={canvasRef}
-        width={600}
-        height={80}
-        style={{
-          borderRadius: 6,
-          cursor: deckState.isLoaded ? 'crosshair' : 'default',
-          border: '1px solid #2a2a3a',
-          width: '100%',
-          height: 40
-        }}
-        onClick={handleSeek}
-      />
-
-      {/* Progress scrubber */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <Scrubber
-          value={deckState.currentTime}
-          max={deckState.duration || 1}
-          onChange={(v) => seekDeck(deck, v)}
-          accent={accent}
-        />
-      </div>
-
-      {/* Controls row */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-        {/* CUE */}
-        <button
-          onClick={() => cueDeck(deck)}
-          disabled={!deckState.isLoaded}
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: '50%',
-            border: '2px solid #ccaa00',
-            background: '#1a1500',
-            color: '#ffcc00',
-            cursor: deckState.isLoaded ? 'pointer' : 'not-allowed',
-            fontSize: 11,
-            fontWeight: 700,
-            letterSpacing: '0.05em',
-            opacity: deckState.isLoaded ? 1 : 0.4,
-            transition: 'all 0.15s'
-          }}
-        >
-          CUE
-        </button>
-
-        {/* Play / Pause */}
-        <button
-          onClick={() => deckState.isPlaying ? pauseDeck(deck) : playDeck(deck)}
-          disabled={!deckState.isLoaded}
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: '50%',
-            border: `2px solid ${accent}`,
-            background: deckState.isPlaying ? accent : bg,
-            color: deckState.isPlaying ? '#0a0a10' : accent,
-            cursor: deckState.isLoaded ? 'pointer' : 'not-allowed',
-            fontSize: 22,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: deckState.isLoaded ? 1 : 0.4,
-            boxShadow: deckState.isPlaying ? `0 0 16px ${accent}60` : 'none',
-            transition: 'all 0.15s'
-          }}
-        >
-          {deckState.isPlaying ? '⏸' : '▶'}
-        </button>
-
-        {/* Stop */}
-        <button
-          onClick={() => { pauseDeck(deck); seekDeck(deck, 0) }}
-          disabled={!deckState.isLoaded}
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 6,
-            border: '1px solid #3a3a5a',
-            background: '#1a1a24',
-            color: '#8888aa',
-            cursor: deckState.isLoaded ? 'pointer' : 'not-allowed',
-            fontSize: 14,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: deckState.isLoaded ? 1 : 0.4,
-            transition: 'all 0.15s'
-          }}
-        >
-          ⏹
-        </button>
-      </div>
+      {deck === 'B' && (
+        <Platter isPlaying={deckState.isPlaying} accent={accent} size={150} />
+      )}
 
     </div>
   )
