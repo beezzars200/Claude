@@ -93,6 +93,23 @@ app.whenReady().then(() => {
     return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
   })
 
+  // IPC: Read audio file metadata (ID3 tags)
+  ipcMain.handle('audio:getMetadata', async (_event, filePath: string) => {
+    try {
+      const mm = require('music-metadata')
+      const metadata = await mm.parseFile(filePath, { skipCovers: true })
+      return {
+        title: metadata.common.title ?? null,
+        artist: metadata.common.artist ?? null,
+        album: metadata.common.album ?? null,
+        duration: metadata.format.duration ?? null,
+        bpm: metadata.common.bpm ?? null
+      }
+    } catch {
+      return { title: null, artist: null, album: null, duration: null, bpm: null }
+    }
+  })
+
   // IPC: Get home directory path
   ipcMain.handle('fs:getHomePath', () => app.getPath('home'))
 

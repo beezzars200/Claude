@@ -90,13 +90,32 @@ export default function Library({ audioEngine }: LibraryProps) {
     }
   }
 
-  const addFileToLibrary = (entry: DirEntry) => {
-    const name = entry.name.replace(/\.[^/.]+$/, '')
+  const addFileToLibrary = async (entry: DirEntry): Promise<Track> => {
+    const nameNoExt = entry.name.replace(/\.[^/.]+$/, '')
+    // Check if already in library
+    const existing = useStore.getState().tracks.find(t => t.id === entry.path)
+    if (existing) return existing
+
+    // Try to read ID3 metadata
+    let artist: string | undefined
+    let title: string | undefined
+    let duration: number | undefined
+    try {
+      const meta = await window.api.getMetadata(entry.path)
+      artist = meta.artist ?? undefined
+      title = meta.title ?? undefined
+      duration = meta.duration ?? undefined
+    } catch { /* ignore */ }
+
+    const displayName = title ? (artist ? `${artist} - ${title}` : title) : nameNoExt
     const track: Track = {
       id: entry.path,
-      name,
+      name: displayName,
       filePath: entry.path,
-      fileUrl: entry.path
+      fileUrl: entry.path,
+      artist,
+      title,
+      duration
     }
     addTracks([track])
     return track
@@ -129,13 +148,13 @@ export default function Library({ audioEngine }: LibraryProps) {
       setColumns(cols => cols.map((c, i) =>
         i === colIdx ? { ...c, selectedName: entry.name } : c
       ))
-      addFileToLibrary(entry)
+      await addFileToLibrary(entry)
     }
   }
 
   const handleColumnEntryDoubleClick = async (entry: DirEntry) => {
     if (!entry.isDirectory) {
-      const track = addFileToLibrary(entry)
+      const track = await addFileToLibrary(entry)
       audioEngine.initAudio()
       // Load to next available deck (A if no track, else B)
       const deckATrack = useStore.getState().deckA.track
@@ -223,7 +242,7 @@ export default function Library({ audioEngine }: LibraryProps) {
       {/* Content area: columns + optional queue pane */}
       <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden', gap: 0 }}>
         {/* Column browser */}
-        <div style={{ display: 'flex', flex: 1, overflowX: 'auto', gap: 0, minHeight: 0 }}>
+        <div style={{ display: 'flex', flex: 1, overflowX: 'auto', minHeight: 0 }}>
           {browserLoading && columns.length === 0 ? (
             <div style={{ color: '#444466', fontSize: 11, padding: 8, alignSelf: 'flex-start' }}>Loading...</div>
           ) : columns.length === 0 ? (
@@ -233,9 +252,11 @@ export default function Library({ audioEngine }: LibraryProps) {
               <div
                 key={col.path}
                 style={{
-                  flex: '0 0 220px',
+                  flex: 1,
+                  minWidth: 180,
                   borderRight: '1px solid #2a2a3a',
                   overflowY: 'auto',
+                  overflowX: 'hidden',
                   display: 'flex',
                   flexDirection: 'column'
                 }}
@@ -253,7 +274,7 @@ export default function Library({ audioEngine }: LibraryProps) {
                       draggable={!entry.isDirectory}
                       onDragStart={(e) => handleDragStart(e, entry)}
                       style={{
-                        padding: '8px 10px',
+                        padding: '10px 12px',
                         cursor: 'pointer',
                         background: col.selectedName === entry.name ? '#22223a' : 'transparent',
                         borderBottom: '1px solid #1a1a28',
@@ -335,8 +356,13 @@ export default function Library({ audioEngine }: LibraryProps) {
                     >
                       <div style={{ flex: 1, overflow: 'hidden' }}>
                         <div style={{ fontSize: 12, color: '#e0e0f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {track.name}
+                          {track.title ?? track.name}
                         </div>
+                        {track.artist && (
+                          <div style={{ fontSize: 10, color: '#8888aa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>
+                            {track.artist}
+                          </div>
+                        )}
                         <div style={{ fontSize: 9, color: '#555577', marginTop: 1 }}>
                           {formatDuration(track.duration)}
                         </div>

@@ -20,7 +20,10 @@ const api = {
   getHomePath: (): Promise<string> => ipcRenderer.invoke('fs:getHomePath'),
   getMusicPath: (): Promise<string> => ipcRenderer.invoke('fs:getMusicPath'),
   readDir: (dirPath: string): Promise<Array<{ name: string; isDirectory: boolean; path: string }>> =>
-    ipcRenderer.invoke('fs:readDir', dirPath)
+    ipcRenderer.invoke('fs:readDir', dirPath),
+
+  getMetadata: (filePath: string): Promise<{ title: string | null; artist: string | null; album: string | null; duration: number | null; bpm: number | null }> =>
+    ipcRenderer.invoke('audio:getMetadata', filePath),
 }
 
 if (process.contextIsolated) {

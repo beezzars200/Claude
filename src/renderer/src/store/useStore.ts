@@ -2,10 +2,12 @@ import { create } from 'zustand'
 
 export interface Track {
   id: string
-  name: string
+  name: string          // display name (fallback: filename without ext)
   filePath: string
   fileUrl: string
   duration?: number
+  artist?: string       // ADD THIS
+  title?: string        // ADD THIS
 }
 
 export interface DeckState {

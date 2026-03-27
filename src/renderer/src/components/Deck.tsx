@@ -293,8 +293,94 @@ function Platter({ isPlaying, accent, size = 160 }: PlatterProps) {
   )
 }
 
+interface PremiumBtnProps {
+  onClick: () => void
+  disabled?: boolean
+  active?: boolean
+  color: string
+  size?: number
+  children: React.ReactNode
+  label?: string
+}
+
+function PremiumBtn({ onClick, disabled = false, active = false, color, size = 48, children, label }: PremiumBtnProps) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={label}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: 8,
+        border: `1px solid ${active ? color : color + '55'}`,
+        background: active
+          ? `linear-gradient(145deg, ${color}dd, ${color}88)`
+          : 'linear-gradient(145deg, #1e1e2a, #12121a)',
+        color: active ? '#08080e' : color,
+        fontSize: typeof children === 'string' && children.length > 2 ? 11 : 16,
+        fontWeight: 700,
+        letterSpacing: '0.04em',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.3 : 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+        transition: 'all 0.12s',
+        boxShadow: active
+          ? `0 0 14px ${color}55, inset 0 1px 0 rgba(255,255,255,0.18), 0 3px 6px rgba(0,0,0,0.7)`
+          : `inset 0 1px 0 rgba(255,255,255,0.06), inset 0 -1px 0 rgba(0,0,0,0.5), 0 3px 8px rgba(0,0,0,0.7), 0 1px 0 rgba(255,255,255,0.03)`,
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
+interface TransportColumnProps {
+  deck: 'A' | 'B'
+  isPlaying: boolean
+  isLoaded: boolean
+  accent: string
+  onPlay: () => void
+  onPause: () => void
+  onCue: () => void
+  onStop: () => void
+}
+
+function TransportColumn({ isPlaying, isLoaded, accent, onPlay, onPause, onCue, onStop }: TransportColumnProps) {
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 6,
+      alignSelf: 'center',
+      flexShrink: 0,
+      padding: '0 4px'
+    }}>
+      <PremiumBtn onClick={onCue} disabled={!isLoaded} color="#ccaa00" size={48} label="CUE">
+        CUE
+      </PremiumBtn>
+      <PremiumBtn
+        onClick={isPlaying ? onPause : onPlay}
+        disabled={!isLoaded}
+        active={isPlaying}
+        color={accent}
+        size={48}
+        label={isPlaying ? 'Pause' : 'Play'}
+      >
+        {isPlaying ? '⏸' : '▶'}
+      </PremiumBtn>
+      <PremiumBtn onClick={onStop} disabled={!isLoaded} color="#556688" size={48} label="Stop">
+        ■
+      </PremiumBtn>
+    </div>
+  )
+}
+
 export default function Deck({ deck, audioEngine }: DeckProps) {
-  const { playDeck, pauseDeck, cueDeck, seekDeck } = audioEngine
+  const { playDeck, pauseDeck, cueDeck, seekDeck, initAudio, loadTrack } = audioEngine
   const deckState = useStore((s) => (deck === 'A' ? s.deckA : s.deckB))
   const accent = ACCENT[deck]
   const bg = BG[deck]

@@ -22,6 +22,7 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.0",
     "@electron-toolkit/utils": "^3.0.0",
+    "music-metadata": "^7.14.0",
     "zustand": "^4.5.2"
   },
   "devDependencies": {
