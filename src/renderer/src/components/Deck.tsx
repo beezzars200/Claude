@@ -131,54 +131,77 @@ function VerticalFader({ value, onChange, accent, height = 90 }: VerticalFaderPr
     window.addEventListener('mouseup', onUp)
   }
 
-  const capHeight = 10
-  const trackInner = height - capHeight
-  const capTop = (1 - value) * trackInner
+  const capHeight = 12
+  const capWidth = 28
+  const capTop = (1 - value) * (height - capHeight)
 
   return (
+    // Outer container is cap-width wide so layout never shifts
     <div
       style={{
         position: 'relative',
-        width: 8,
+        width: capWidth,
         height,
-        borderRadius: 4,
-        background: '#0d0d18',
-        boxShadow: 'inset 0 1px 4px rgba(0,0,0,0.8)',
         cursor: 'ns-resize',
-        userSelect: 'none'
+        userSelect: 'none',
+        flexShrink: 0
       }}
       onMouseDown={onMouseDown}
     >
-      {/* Fill from bottom */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          width: '100%',
-          height: `${value * 100}%`,
-          borderRadius: 4,
-          background: `linear-gradient(to top, ${accent}cc, ${accent}44)`,
-          pointerEvents: 'none'
-        }}
-      />
-      {/* Cap */}
+      {/* Track — 8px, centered inside the 28px container */}
       <div
         style={{
           position: 'absolute',
           left: '50%',
-          top: capTop,
+          top: 0,
           transform: 'translateX(-50%)',
-          width: 28,
-          height: capHeight,
-          borderRadius: 3,
-          background: '#2a2a3a',
-          border: `1px solid ${accent}`,
-          boxShadow: '0 2px 4px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)',
-          cursor: 'ns-resize',
+          width: 8,
+          height: '100%',
+          borderRadius: 4,
+          background: '#0d0d18',
+          boxShadow: 'inset 0 1px 4px rgba(0,0,0,0.8)',
           pointerEvents: 'none'
         }}
-      />
+      >
+        {/* Fill from bottom */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            width: '100%',
+            height: `${value * 100}%`,
+            borderRadius: 4,
+            background: `linear-gradient(to top, ${accent}cc, ${accent}44)`
+          }}
+        />
+      </div>
+      {/* Cap — exactly cap-width wide, no transform needed */}
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: capTop,
+          width: capWidth,
+          height: capHeight,
+          borderRadius: 3,
+          background: 'linear-gradient(to bottom, #3a3a4e, #22222e)',
+          border: `1px solid ${accent}80`,
+          boxShadow: '0 2px 6px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.07)',
+          pointerEvents: 'none'
+        }}
+      >
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%,-50%)',
+          width: 12,
+          height: 2,
+          background: `${accent}60`,
+          borderRadius: 1
+        }} />
+      </div>
     </div>
   )
 }
@@ -275,6 +298,22 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animRef = useRef<number>(0)
 
+  // Green(0,255,136) → Teal(0,204,187) → Blue(0,136,255) based on HF ratio
+  const hfToRgba = (hf: number, alpha: number): string => {
+    const t = Math.max(0, Math.min(1, hf))
+    let g: number, b: number
+    if (t < 0.5) {
+      const u = t * 2
+      g = Math.round(255 + u * (204 - 255))
+      b = Math.round(136 + u * (187 - 136))
+    } else {
+      const u = (t - 0.5) * 2
+      g = Math.round(204 + u * (136 - 204))
+      b = Math.round(187 + u * (255 - 187))
+    }
+    return `rgba(0,${g},${b},${alpha})`
+  }
+
   // Waveform animation — pre-rendered static waveform with moving playhead
   const drawWaveform = useCallback(() => {
     const canvas = canvasRef.current
@@ -290,38 +329,37 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
     ctx.fillRect(0, 0, W, H)
 
     const waveform = deckState.waveform
+    const waveformHF = deckState.waveformHF
     if (waveform && waveform.length > 0) {
       const numPoints = waveform.length
       const progress = deckState.duration > 0 ? deckState.currentTime / deckState.duration : 0
       const playedBars = Math.floor(progress * numPoints)
-
       const barWidth = W / numPoints
 
       for (let i = 0; i < numPoints; i++) {
         const barH = Math.max(2, waveform[i] * H * 0.9)
         const x = i * barWidth
         const y = (H - barH) / 2
+        const hf = waveformHF ? waveformHF[i] : 0
 
-        if (i < playedBars) {
-          ctx.fillStyle = accent + '99' // played: accent at ~60% opacity
-        } else {
-          ctx.fillStyle = '#2a2a3a' // unplayed: dark
-        }
+        ctx.fillStyle = i < playedBars
+          ? hfToRgba(hf, 0.9)   // played: full brightness frequency color
+          : hfToRgba(hf, 0.22)  // unplayed: same hue, very dim
         ctx.fillRect(x, y, Math.max(1, barWidth - 0.5), barH)
       }
 
       // Playhead line
       const playheadX = Math.floor(progress * W)
-      ctx.fillStyle = accent
+      ctx.fillStyle = '#ffffff'
       ctx.fillRect(playheadX - 1, 0, 2, H)
 
       // Glow around playhead
-      const gradient = ctx.createLinearGradient(playheadX - 12, 0, playheadX + 12, 0)
+      const gradient = ctx.createLinearGradient(playheadX - 14, 0, playheadX + 14, 0)
       gradient.addColorStop(0, 'transparent')
-      gradient.addColorStop(0.5, accent + '30')
+      gradient.addColorStop(0.5, accent + '40')
       gradient.addColorStop(1, 'transparent')
       ctx.fillStyle = gradient
-      ctx.fillRect(playheadX - 12, 0, 24, H)
+      ctx.fillRect(playheadX - 14, 0, 28, H)
     } else {
       // No waveform loaded — draw flat line
       ctx.beginPath()
@@ -333,7 +371,7 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
     }
 
     animRef.current = requestAnimationFrame(drawWaveform)
-  }, [deck, deckState.waveform, deckState.currentTime, deckState.duration, accent, bg])
+  }, [deck, deckState.waveform, deckState.waveformHF, deckState.currentTime, deckState.duration, accent, bg])
 
   useEffect(() => {
     animRef.current = requestAnimationFrame(drawWaveform)

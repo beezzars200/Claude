@@ -205,8 +205,8 @@ export function useAudioEngine() {
         // Estimate BPM (simple approximation)
         const bpm = estimateBPM(audioBuffer)
 
-        // Pre-render waveform
-        const waveform = computeWaveform(audioBuffer)
+        // Pre-render waveform + frequency coloring
+        const { waveform, waveformHF } = computeWaveformData(audioBuffer)
 
         const setter = deck === 'A' ? setDeckA : setDeckB
         setter({
@@ -215,7 +215,8 @@ export function useAudioEngine() {
           currentTime: 0,
           duration: audioBuffer.duration,
           bpm,
-          waveform
+          waveform,
+          waveformHF
         })
       } catch (err) {
         console.error('Failed to load track:', err)
@@ -224,19 +225,28 @@ export function useAudioEngine() {
     [initAudio, setDeckA, setDeckB]
   )
 
-  // Pre-render full waveform for static display
-  function computeWaveform(buffer: AudioBuffer, numPoints: number = 800): Float32Array {
+  // Pre-render waveform amplitude + high-frequency energy ratio per bar
+  function computeWaveformData(buffer: AudioBuffer, numPoints: number = 800): { waveform: Float32Array; waveformHF: Float32Array } {
     const channelData = buffer.getChannelData(0)
     const blockSize = Math.floor(channelData.length / numPoints)
     const waveform = new Float32Array(numPoints)
+    const waveformHF = new Float32Array(numPoints)
+
     for (let i = 0; i < numPoints; i++) {
-      let sum = 0
-      for (let j = 0; j < blockSize; j++) {
-        sum += Math.abs(channelData[i * blockSize + j])
+      const offset = i * blockSize
+      let totalE = 0, diffE = 0
+      for (let j = 1; j < blockSize; j++) {
+        const s = channelData[offset + j]
+        const prev = channelData[offset + j - 1]
+        totalE += Math.abs(s)
+        diffE += Math.abs(s - prev)
       }
-      waveform[i] = sum / blockSize
+      waveform[i] = totalE / blockSize
+      // diffE scales with frequency — normalize relative to total energy
+      waveformHF[i] = Math.min(1, (diffE / (totalE * 2 + 0.001)) * 3)
     }
-    return waveform
+
+    return { waveform, waveformHF }
   }
 
   // Estimate BPM from audio buffer (simplified)

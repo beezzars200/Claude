@@ -42,57 +42,76 @@ function VerticalFader({ value, onChange, accent, height = 90 }: VerticalFaderPr
     window.addEventListener('mouseup', onUp)
   }
 
-  // Cap position: 0 = bottom, 1 = top
-  // Track inner height minus cap height
-  const capHeight = 10
-  const trackInner = height - capHeight
-  const capTop = (1 - value) * trackInner
+  const capHeight = 12
+  const capWidth = 28
+  const capTop = (1 - value) * (height - capHeight)
 
   return (
     <div
       ref={trackRef}
       style={{
         position: 'relative',
-        width: 8,
+        width: capWidth,
         height,
-        borderRadius: 4,
-        background: '#0d0d18',
-        boxShadow: 'inset 0 1px 4px rgba(0,0,0,0.8)',
         cursor: 'ns-resize',
-        userSelect: 'none'
+        userSelect: 'none',
+        flexShrink: 0
       }}
       onMouseDown={onMouseDown}
     >
-      {/* Fill from bottom */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          width: '100%',
-          height: `${value * 100}%`,
-          borderRadius: 4,
-          background: `linear-gradient(to top, ${accent}cc, ${accent}44)`,
-          pointerEvents: 'none'
-        }}
-      />
-      {/* Cap */}
+      {/* Track — 8px, centered inside 28px container */}
       <div
         style={{
           position: 'absolute',
           left: '50%',
-          top: capTop,
+          top: 0,
           transform: 'translateX(-50%)',
-          width: 28,
-          height: capHeight,
-          borderRadius: 3,
-          background: '#2a2a3a',
-          border: `1px solid ${accent}`,
-          boxShadow: '0 2px 4px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)',
-          cursor: 'ns-resize',
+          width: 8,
+          height: '100%',
+          borderRadius: 4,
+          background: '#0d0d18',
+          boxShadow: 'inset 0 1px 4px rgba(0,0,0,0.8)',
           pointerEvents: 'none'
         }}
-      />
+      >
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            width: '100%',
+            height: `${value * 100}%`,
+            borderRadius: 4,
+            background: `linear-gradient(to top, ${accent}cc, ${accent}44)`
+          }}
+        />
+      </div>
+      {/* Cap — full container width, no transform */}
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: capTop,
+          width: capWidth,
+          height: capHeight,
+          borderRadius: 3,
+          background: 'linear-gradient(to bottom, #3a3a4e, #22222e)',
+          border: `1px solid ${accent}80`,
+          boxShadow: '0 2px 6px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.07)',
+          pointerEvents: 'none'
+        }}
+      >
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%,-50%)',
+          width: 12,
+          height: 2,
+          background: `${accent}60`,
+          borderRadius: 1
+        }} />
+      </div>
     </div>
   )
 }
@@ -100,20 +119,21 @@ function VerticalFader({ value, onChange, accent, height = 90 }: VerticalFaderPr
 interface HorizontalFaderProps {
   value: number
   onChange: (v: number) => void
-  width?: number
 }
 
-function HorizontalFader({ value, onChange, width = 160 }: HorizontalFaderProps) {
+function HorizontalFader({ value, onChange }: HorizontalFaderProps) {
   const startX = useRef<number | null>(null)
   const startVal = useRef(value)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   const onMouseDown = (e: React.MouseEvent) => {
     e.preventDefault()
+    const trackWidth = containerRef.current?.offsetWidth ?? 180
     startX.current = e.clientX
     startVal.current = value
     const onMove = (me: MouseEvent) => {
       if (startX.current === null) return
-      const delta = (me.clientX - startX.current) / width
+      const delta = (me.clientX - startX.current) / trackWidth
       const next = Math.max(0, Math.min(1, startVal.current + delta))
       onChange(next)
     }
@@ -126,57 +146,92 @@ function HorizontalFader({ value, onChange, width = 160 }: HorizontalFaderProps)
     window.addEventListener('mouseup', onUp)
   }
 
-  const capWidth = 10
-  const trackInner = width - capWidth
-  const capLeft = value * trackInner
-
-  // Gradient color: green (left) to blue (right)
-  const gradientStop = Math.round(value * 100)
+  const capWidth = 14
+  const capHeight = 38
+  const trackH = 12
+  const atCenter = Math.abs(value - 0.5) < 0.008
 
   return (
     <div
+      ref={containerRef}
       style={{
         position: 'relative',
-        width,
-        height: 8,
-        borderRadius: 4,
-        background: '#0d0d18',
-        boxShadow: 'inset 0 1px 4px rgba(0,0,0,0.8)',
+        width: '100%',
+        height: capHeight,
         cursor: 'ew-resize',
-        userSelect: 'none'
+        userSelect: 'none',
+        flexShrink: 0
       }}
       onMouseDown={onMouseDown}
     >
-      {/* Fill from left */}
-      <div
-        style={{
+      {/* Track — centered vertically */}
+      <div style={{
+        position: 'absolute',
+        top: '50%',
+        left: 0,
+        right: 0,
+        transform: 'translateY(-50%)',
+        height: trackH,
+        borderRadius: 6,
+        background: '#0a0a14',
+        boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.9)'
+      }}>
+        {/* Green fill: fader to center (only when left of center) */}
+        {!atCenter && value < 0.5 && (
+          <div style={{
+            position: 'absolute',
+            top: 0, bottom: 0,
+            left: `${value * 100}%`,
+            width: `${(0.5 - value) * 100}%`,
+            background: 'linear-gradient(to right, #00ff8844, #00ff88bb)',
+            borderRadius: 6
+          }} />
+        )}
+        {/* Blue fill: center to fader (only when right of center) */}
+        {!atCenter && value > 0.5 && (
+          <div style={{
+            position: 'absolute',
+            top: 0, bottom: 0,
+            left: '50%',
+            width: `${(value - 0.5) * 100}%`,
+            background: 'linear-gradient(to right, #0088ff44, #0088ffbb)',
+            borderRadius: 6
+          }} />
+        )}
+      </div>
+
+      {/* Left end marker */}
+      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 2, background: '#4a4a6a', borderRadius: 1, pointerEvents: 'none' }} />
+      {/* Centre marker — subtle green */}
+      <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, transform: 'translateX(-50%)', width: 1, background: '#00ff8855', pointerEvents: 'none' }} />
+      {/* Right end marker */}
+      <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 2, background: '#4a4a6a', borderRadius: 1, pointerEvents: 'none' }} />
+
+      {/* Cap — percentage positioned, no layout jitter */}
+      <div style={{
+        position: 'absolute',
+        top: '50%',
+        left: `calc(${value * 100}% - ${capWidth / 2}px)`,
+        transform: 'translateY(-50%)',
+        width: capWidth,
+        height: capHeight,
+        borderRadius: 4,
+        background: 'linear-gradient(to right, #3a3a4e, #28283a, #3a3a4e)',
+        border: '1px solid #7777aa',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.07)',
+        pointerEvents: 'none',
+        zIndex: 2
+      }}>
+        {/* Grip line */}
+        <div style={{
           position: 'absolute',
-          top: 0,
-          left: 0,
-          width: `${value * 100}%`,
-          height: '100%',
-          borderRadius: 4,
-          background: `linear-gradient(to right, #00ff88cc, #0088ffcc ${gradientStop}%)`,
-          pointerEvents: 'none'
-        }}
-      />
-      {/* Cap */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '50%',
-          left: capLeft,
-          transform: 'translateY(-50%)',
-          width: capWidth,
-          height: 28,
-          borderRadius: 3,
-          background: '#2a2a3a',
-          border: '1px solid #8888aa',
-          boxShadow: '2px 0 4px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)',
-          cursor: 'ew-resize',
-          pointerEvents: 'none'
-        }}
-      />
+          top: '50%', left: '50%',
+          transform: 'translate(-50%,-50%)',
+          width: 2, height: 18,
+          background: '#7777aa',
+          borderRadius: 1
+        }} />
+      </div>
     </div>
   )
 }
@@ -334,26 +389,7 @@ export default function Mixer({ audioEngine, getAnalyserData }: MixerProps) {
           <span style={{ letterSpacing: '0.06em' }}>CROSSFADER</span>
           <span style={{ color: '#0088ff', fontWeight: 700 }}>B</span>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'center', position: 'relative' }}>
-          <HorizontalFader
-            value={crossfader}
-            onChange={updateCrossfader}
-            width={160}
-          />
-          {/* Center marker */}
-          <div
-            style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: 1,
-              height: 12,
-              background: '#3a3a5a',
-              pointerEvents: 'none'
-            }}
-          />
-        </div>
+        <HorizontalFader value={crossfader} onChange={updateCrossfader} />
         <div style={{ textAlign: 'center', fontSize: 10, color: '#6666aa' }}>
           {crossPercent < 50 ? `A ${100 - crossPercent * 2}%` : crossPercent > 50 ? `B ${(crossPercent - 50) * 2}%` : 'CENTER'}
         </div>
