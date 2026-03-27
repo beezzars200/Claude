@@ -11,11 +11,14 @@ interface DeckProps {
     setEQ: (deck: 'A' | 'B', band: 'low' | 'mid' | 'high', value: number) => void
     seekDeck: (deck: 'A' | 'B', time: number) => void
     getWaveformData: (deck: 'A' | 'B') => Uint8Array | null
+    getAnalyserData: (deck: 'A' | 'B') => Uint8Array | null
   }
 }
 
 const ACCENT = { A: '#00ff88', B: '#0088ff' }
 const BG = { A: '#0a1a0f', B: '#0a0f1a' }
+
+const DECK_VU_BARS = 8
 
 function formatTime(seconds: number): string {
   if (!seconds || isNaN(seconds)) return '0:00'
@@ -31,7 +34,7 @@ interface KnobProps {
   accent: string
 }
 
-function Knob({ label, value, onChange, accent }: KnobProps) {
+export function Knob({ label, value, onChange, accent }: KnobProps) {
   const startY = useRef<number | null>(null)
   const startVal = useRef(value)
 
@@ -290,13 +293,25 @@ function Scrubber({ value, max, onChange, accent }: ScrubberProps) {
 }
 
 export default function Deck({ deck, audioEngine }: DeckProps) {
-  const { playDeck, pauseDeck, cueDeck, setDeckVolume, setEQ, seekDeck } = audioEngine
+  const { playDeck, pauseDeck, cueDeck, setDeckVolume, setEQ, seekDeck, getAnalyserData } = audioEngine
   const deckState = useStore((s) => (deck === 'A' ? s.deckA : s.deckB))
   const accent = ACCENT[deck]
   const bg = BG[deck]
 
+  // Reference waveform (smaller, bottom)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animRef = useRef<number>(0)
+
+  // Top large waveform
+  const topCanvasRef = useRef<HTMLCanvasElement>(null)
+  const topAnimRef = useRef<number>(0)
+
+  // Deck VU meter bar refs
+  const deckBarRefs = useRef<(HTMLDivElement | null)[]>(Array(DECK_VU_BARS).fill(null))
+  const deckVUAnimRef = useRef<number>(0)
+  const deckLevelRef = useRef(0)
+  const isPlayingRef = useRef(deckState.isPlaying)
+  isPlayingRef.current = deckState.isPlaying
 
   // Green(0,255,136) → Teal(0,204,187) → Blue(0,136,255) based on HF ratio
   const hfToRgba = (hf: number, alpha: number): string => {
@@ -314,10 +329,8 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
     return `rgba(0,${g},${b},${alpha})`
   }
 
-  // Waveform animation — pre-rendered static waveform with moving playhead
-  const drawWaveform = useCallback(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+  // Shared waveform drawing logic — draws onto the given canvas
+  const drawWaveformOnCanvas = useCallback((canvas: HTMLCanvasElement) => {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
@@ -369,14 +382,69 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
       ctx.lineTo(W, H / 2)
       ctx.stroke()
     }
-
-    animRef.current = requestAnimationFrame(drawWaveform)
   }, [deck, deckState.waveform, deckState.waveformHF, deckState.currentTime, deckState.duration, accent, bg])
+
+  // Reference waveform animation
+  const drawWaveform = useCallback(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    drawWaveformOnCanvas(canvas)
+    animRef.current = requestAnimationFrame(drawWaveform)
+  }, [drawWaveformOnCanvas])
 
   useEffect(() => {
     animRef.current = requestAnimationFrame(drawWaveform)
     return () => cancelAnimationFrame(animRef.current)
   }, [drawWaveform])
+
+  // Top large waveform animation
+  const drawTopWaveform = useCallback(() => {
+    const canvas = topCanvasRef.current
+    if (!canvas) return
+    drawWaveformOnCanvas(canvas)
+    topAnimRef.current = requestAnimationFrame(drawTopWaveform)
+  }, [drawWaveformOnCanvas])
+
+  useEffect(() => {
+    topAnimRef.current = requestAnimationFrame(drawTopWaveform)
+    return () => cancelAnimationFrame(topAnimRef.current)
+  }, [drawTopWaveform])
+
+  // Deck VU meter animation
+  useEffect(() => {
+    const animate = () => {
+      const data = getAnalyserData(deck)
+      if (data && data.length > 0 && isPlayingRef.current) {
+        let sum = 0
+        for (let i = 0; i < data.length; i++) sum += data[i]
+        deckLevelRef.current = sum / (255 * data.length)
+      } else {
+        deckLevelRef.current = Math.max(0, deckLevelRef.current - 0.04)
+      }
+
+      const level = deckLevelRef.current
+      const lit = Math.round(level * DECK_VU_BARS)
+      for (let idx = 0; idx < DECK_VU_BARS; idx++) {
+        const el = deckBarRefs.current[idx]
+        if (!el) continue
+        const isLit = idx < lit
+        const isRed = idx >= DECK_VU_BARS - 1
+        const isYellow = idx >= DECK_VU_BARS - 2 && idx < DECK_VU_BARS - 1
+        if (isLit) {
+          el.style.background = isRed ? '#ff3366' : isYellow ? '#ffcc00' : accent
+          el.style.boxShadow = (!isRed && !isYellow) ? `0 0 4px ${accent}60` : 'none'
+        } else {
+          el.style.background = '#1e1e2a'
+          el.style.boxShadow = 'none'
+        }
+      }
+
+      deckVUAnimRef.current = requestAnimationFrame(animate)
+    }
+
+    deckVUAnimRef.current = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(deckVUAnimRef.current)
+  }, [getAnalyserData, deck, accent])
 
   const handleSeek = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!deckState.isLoaded || deckState.duration === 0) return
@@ -400,6 +468,20 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
         transition: 'border-color 0.3s, box-shadow 0.3s'
       }}
     >
+      {/* Top large waveform */}
+      <canvas
+        ref={topCanvasRef}
+        width={1200}
+        height={176}
+        style={{
+          borderRadius: 6,
+          cursor: deckState.isLoaded ? 'crosshair' : 'default',
+          width: '100%',
+          height: 88
+        }}
+        onClick={handleSeek}
+      />
+
       {/* Deck label */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -447,17 +529,17 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
         {deckState.track?.name ?? 'No track loaded — drag from library'}
       </div>
 
-      {/* Waveform */}
+      {/* Reference Waveform (smaller) */}
       <canvas
         ref={canvasRef}
         width={600}
-        height={64}
+        height={80}
         style={{
           borderRadius: 6,
           cursor: deckState.isLoaded ? 'crosshair' : 'default',
           border: '1px solid #2a2a3a',
           width: '100%',
-          height: 64
+          height: 40
         }}
         onClick={handleSeek}
       />
@@ -544,7 +626,7 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
         </button>
       </div>
 
-      {/* EQ + Volume */}
+      {/* EQ + VU + Volume */}
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', paddingTop: 4 }}>
         {/* EQ knobs */}
         <div style={{ display: 'flex', gap: 10 }}>
@@ -566,6 +648,26 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
             onChange={(v) => setEQ(deck, 'high', v)}
             accent={accent}
           />
+        </div>
+
+        {/* Deck VU Meter */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center', justifyContent: 'flex-end' }}>
+          {Array.from({ length: DECK_VU_BARS }, (_, i) => {
+            const idx = DECK_VU_BARS - 1 - i
+            return (
+              <div
+                key={i}
+                ref={(el) => { deckBarRefs.current[idx] = el }}
+                style={{
+                  width: 8,
+                  height: 4,
+                  borderRadius: 1,
+                  background: '#1e1e2a',
+                  transition: 'background 0.05s'
+                }}
+              />
+            )
+          })}
         </div>
 
         {/* Volume fader — premium custom vertical fader */}

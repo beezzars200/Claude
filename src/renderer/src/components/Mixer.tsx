@@ -7,29 +7,30 @@ interface MixerProps {
     updateMasterVolume: (value: number) => void
   }
   getAnalyserData: (deck: 'A' | 'B') => Uint8Array | null
+  setEQ: (deck: 'A' | 'B', band: 'low' | 'mid' | 'high', value: number) => void
+  deckAEQ: { low: number; mid: number; high: number }
+  deckBEQ: { low: number; mid: number; high: number }
 }
 
-// ----- Custom Fader components -----
+// ----- Knob (copied from Deck.tsx for use in Mixer) -----
 
-interface VerticalFaderProps {
+interface KnobProps {
+  label: string
   value: number
   onChange: (v: number) => void
   accent: string
-  height?: number
 }
 
-function VerticalFader({ value, onChange, accent, height = 90 }: VerticalFaderProps) {
+function Knob({ label, value, onChange, accent }: KnobProps) {
   const startY = useRef<number | null>(null)
   const startVal = useRef(value)
-  const trackRef = useRef<HTMLDivElement>(null)
 
   const onMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault()
     startY.current = e.clientY
     startVal.current = value
     const onMove = (me: MouseEvent) => {
       if (startY.current === null) return
-      const delta = (startY.current - me.clientY) / height
+      const delta = (startY.current - me.clientY) / 120
       const next = Math.max(0, Math.min(1, startVal.current + delta))
       onChange(next)
     }
@@ -42,79 +43,72 @@ function VerticalFader({ value, onChange, accent, height = 90 }: VerticalFaderPr
     window.addEventListener('mouseup', onUp)
   }
 
-  const capHeight = 12
-  const capWidth = 28
-  const capTop = (1 - value) * (height - capHeight)
+  const rotation = -135 + value * 270
+  const displayDb = Math.round((value - 0.5) * 24)
+  const dbStr = displayDb >= 0 ? `+${displayDb}` : `${displayDb}`
 
   return (
-    <div
-      ref={trackRef}
-      style={{
-        position: 'relative',
-        width: capWidth,
-        height,
-        cursor: 'ns-resize',
-        userSelect: 'none',
-        flexShrink: 0
-      }}
-      onMouseDown={onMouseDown}
-    >
-      {/* Track — 8px, centered inside 28px container */}
+    <div className="knob-container" style={{ gap: 4 }}>
       <div
+        className="knob"
         style={{
-          position: 'absolute',
-          left: '50%',
-          top: 0,
-          transform: 'translateX(-50%)',
-          width: 8,
-          height: '100%',
-          borderRadius: 4,
-          background: '#0d0d18',
-          boxShadow: 'inset 0 1px 4px rgba(0,0,0,0.8)',
-          pointerEvents: 'none'
+          width: 42,
+          height: 42,
+          borderRadius: '50%',
+          background: 'radial-gradient(circle at 35% 35%, #2a2a3e, #12121a)',
+          border: `2px solid ${value === 0.5 ? '#3a3a5a' : accent}`,
+          position: 'relative',
+          cursor: 'ns-resize',
+          boxShadow: `0 2px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)`,
+          userSelect: 'none'
         }}
+        onMouseDown={onMouseDown}
       >
         <div
           style={{
             position: 'absolute',
-            bottom: 0,
-            left: 0,
-            width: '100%',
-            height: `${value * 100}%`,
-            borderRadius: 4,
-            background: `linear-gradient(to top, ${accent}cc, ${accent}44)`
+            top: '50%',
+            left: '50%',
+            width: 2,
+            height: 14,
+            background: value === 0.5 ? '#5a5a7a' : accent,
+            borderRadius: 1,
+            transformOrigin: '50% 100%',
+            transform: `translate(-50%, -100%) rotate(${rotation}deg)`,
           }}
         />
       </div>
-      {/* Cap — full container width, no transform */}
-      <div
-        style={{
-          position: 'absolute',
-          left: 0,
-          top: capTop,
-          width: capWidth,
-          height: capHeight,
-          borderRadius: 3,
-          background: 'linear-gradient(to bottom, #3a3a4e, #22222e)',
-          border: `1px solid ${accent}80`,
-          boxShadow: '0 2px 6px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.07)',
-          pointerEvents: 'none'
-        }}
-      >
-        <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%,-50%)',
-          width: 12,
-          height: 2,
-          background: `${accent}60`,
-          borderRadius: 1
-        }} />
+      <div style={{ fontSize: 9, color: '#8888aa', textAlign: 'center', letterSpacing: '0.06em' }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 9, color: value === 0.5 ? '#5a5a7a' : accent, textAlign: 'center' }}>
+        {dbStr}dB
       </div>
     </div>
   )
 }
+
+// ----- EQ Strip -----
+
+interface EQStripProps {
+  deck: 'A' | 'B'
+  eq: { low: number; mid: number; high: number }
+  setEQ: (deck: 'A' | 'B', band: 'low' | 'mid' | 'high', value: number) => void
+  accent: string
+}
+
+function EQStrip({ deck, eq, setEQ, accent }: EQStripProps) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+      <div style={{ fontSize: 9, color: accent, letterSpacing: '0.1em', fontWeight: 700 }}>{deck}</div>
+      <Knob label="HI" value={eq.high === 0 ? 0.5 : eq.high} onChange={(v) => setEQ(deck, 'high', v)} accent={accent} />
+      <Knob label="MID" value={eq.mid === 0 ? 0.5 : eq.mid} onChange={(v) => setEQ(deck, 'mid', v)} accent={accent} />
+      <Knob label="LOW" value={eq.low === 0 ? 0.5 : eq.low} onChange={(v) => setEQ(deck, 'low', v)} accent={accent} />
+    </div>
+  )
+}
+
+// ----- Custom Fader components -----
 
 interface HorizontalFaderProps {
   value: number
@@ -241,22 +235,23 @@ function HorizontalFader({ value, onChange }: HorizontalFaderProps) {
 interface VUMeterProps {
   color: string
   barRefs: React.MutableRefObject<(HTMLDivElement | null)[]>
+  bars?: number
+  barWidth?: number
+  barHeight?: number
 }
 
-const VU_BARS = 12
-
-function VUMeter({ color, barRefs }: VUMeterProps) {
+function VUMeter({ color, barRefs, bars = 12, barWidth = 10, barHeight = 4 }: VUMeterProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}>
-      {Array.from({ length: VU_BARS }, (_, i) => {
-        const idx = VU_BARS - 1 - i
+      {Array.from({ length: bars }, (_, i) => {
+        const idx = bars - 1 - i
         return (
           <div
             key={i}
             ref={(el) => { barRefs.current[idx] = el }}
             style={{
-              width: 10,
-              height: 4,
+              width: barWidth,
+              height: barHeight,
               borderRadius: 1,
               background: '#1e1e2a',
               transition: 'background 0.05s'
@@ -270,32 +265,35 @@ function VUMeter({ color, barRefs }: VUMeterProps) {
 
 // ----- Mixer -----
 
-export default function Mixer({ audioEngine, getAnalyserData }: MixerProps) {
-  const { updateCrossfader, updateMasterVolume } = audioEngine
-  const { crossfader, masterVolume, deckA, deckB } = useStore()
+const MASTER_BARS = 16
 
-  // DOM refs for VU bar elements
-  const barsARef = useRef<(HTMLDivElement | null)[]>(Array(VU_BARS).fill(null))
-  const barsBRef = useRef<(HTMLDivElement | null)[]>(Array(VU_BARS).fill(null))
+export default function Mixer({ audioEngine, getAnalyserData, setEQ, deckAEQ, deckBEQ }: MixerProps) {
+  const { updateCrossfader, updateMasterVolume } = audioEngine
+  const { crossfader, masterVolume } = useStore()
+
+  // Master stereo VU bar refs (L = Deck A, R = Deck B)
+  const masterLBarRefs = useRef<(HTMLDivElement | null)[]>(Array(MASTER_BARS).fill(null))
+  const masterRBarRefs = useRef<(HTMLDivElement | null)[]>(Array(MASTER_BARS).fill(null))
 
   // Level refs (no re-render)
   const levelARef = useRef(0)
   const levelBRef = useRef(0)
   const rafRef = useRef<number>(0)
 
+  const { deckA, deckB } = useStore()
   const isPlayingARef = useRef(deckA.isPlaying)
   const isPlayingBRef = useRef(deckB.isPlaying)
   isPlayingARef.current = deckA.isPlaying
   isPlayingBRef.current = deckB.isPlaying
 
-  const updateVUBars = useCallback((barRefs: React.MutableRefObject<(HTMLDivElement | null)[]>, level: number, color: string) => {
-    const lit = Math.round(level * VU_BARS)
-    for (let idx = 0; idx < VU_BARS; idx++) {
+  const updateVUBars = useCallback((barRefs: React.MutableRefObject<(HTMLDivElement | null)[]>, level: number, color: string, barCount: number) => {
+    const lit = Math.round(level * barCount)
+    for (let idx = 0; idx < barCount; idx++) {
       const el = barRefs.current[idx]
       if (!el) continue
       const isLit = idx < lit
-      const isRed = idx >= VU_BARS - 2
-      const isYellow = idx >= VU_BARS - 4 && idx < VU_BARS - 2
+      const isRed = idx >= barCount - 2
+      const isYellow = idx >= barCount - 4 && idx < barCount - 2
       if (isLit) {
         el.style.background = isRed ? '#ff3366' : isYellow ? '#ffcc00' : color
         el.style.boxShadow = (!isRed && !isYellow) ? `0 0 4px ${color}60` : 'none'
@@ -308,7 +306,7 @@ export default function Mixer({ audioEngine, getAnalyserData }: MixerProps) {
 
   useEffect(() => {
     const animate = () => {
-      // Deck A
+      // Deck A (left channel)
       const dataA = getAnalyserData('A')
       if (dataA && dataA.length > 0 && isPlayingARef.current) {
         let sumA = 0
@@ -318,7 +316,7 @@ export default function Mixer({ audioEngine, getAnalyserData }: MixerProps) {
         levelARef.current = Math.max(0, levelARef.current - 0.04)
       }
 
-      // Deck B
+      // Deck B (right channel)
       const dataB = getAnalyserData('B')
       if (dataB && dataB.length > 0 && isPlayingBRef.current) {
         let sumB = 0
@@ -328,8 +326,8 @@ export default function Mixer({ audioEngine, getAnalyserData }: MixerProps) {
         levelBRef.current = Math.max(0, levelBRef.current - 0.04)
       }
 
-      updateVUBars(barsARef, levelARef.current, '#00ff88')
-      updateVUBars(barsBRef, levelBRef.current, '#0088ff')
+      updateVUBars(masterLBarRefs, levelARef.current, '#ffffff', MASTER_BARS)
+      updateVUBars(masterRBarRefs, levelBRef.current, '#ffffff', MASTER_BARS)
 
       rafRef.current = requestAnimationFrame(animate)
     }
@@ -353,33 +351,26 @@ export default function Mixer({ audioEngine, getAnalyserData }: MixerProps) {
         flexShrink: 0
       }}
     >
-      <div style={{ fontSize: 10, color: '#6666aa', letterSpacing: '0.1em', textAlign: 'center' }}>
-        MIXER
-      </div>
+      {/* Top row: A EQ | Master VU+Knob | B EQ */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, justifyContent: 'space-between' }}>
+        {/* Deck A EQ strip */}
+        <EQStrip deck="A" eq={deckAEQ} setEQ={setEQ} accent="#00ff88" />
 
-      {/* VU Meters + Master Volume */}
-      <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', gap: 6 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-          <VUMeter color="#00ff88" barRefs={barsARef} />
-          <div style={{ fontSize: 9, color: '#00ff88', letterSpacing: '0.06em' }}>A</div>
-        </div>
-
-        {/* Master Volume (custom vertical fader) */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-          <div style={{ fontSize: 9, color: '#8888aa', letterSpacing: '0.06em' }}>MST</div>
-          <VerticalFader
-            value={masterVolume}
-            onChange={updateMasterVolume}
-            accent="#ffffff"
-            height={100}
-          />
+        {/* Master VU + Knob */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+          <div style={{ fontSize: 9, color: '#8888aa', letterSpacing: '0.1em' }}>MASTER</div>
+          {/* Stereo VU: two columns side by side */}
+          <div style={{ display: 'flex', gap: 3 }}>
+            <VUMeter color="#ffffff" barRefs={masterLBarRefs} bars={16} barWidth={12} barHeight={5} />
+            <VUMeter color="#ffffff" barRefs={masterRBarRefs} bars={16} barWidth={12} barHeight={5} />
+          </div>
+          {/* Master knob */}
+          <Knob label="VOL" value={masterVolume} onChange={updateMasterVolume} accent="#ffffff" />
           <div style={{ fontSize: 9, color: '#e0e0f0' }}>{Math.round(masterVolume * 100)}%</div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-          <VUMeter color="#0088ff" barRefs={barsBRef} />
-          <div style={{ fontSize: 9, color: '#0088ff', letterSpacing: '0.06em' }}>B</div>
-        </div>
+        {/* Deck B EQ strip */}
+        <EQStrip deck="B" eq={deckBEQ} setEQ={setEQ} accent="#0088ff" />
       </div>
 
       {/* Crossfader */}
@@ -390,9 +381,11 @@ export default function Mixer({ audioEngine, getAnalyserData }: MixerProps) {
           <span style={{ color: '#0088ff', fontWeight: 700 }}>B</span>
         </div>
         <HorizontalFader value={crossfader} onChange={updateCrossfader} />
-        <div style={{ textAlign: 'center', fontSize: 10, color: '#6666aa' }}>
-          {crossPercent < 50 ? `A ${100 - crossPercent * 2}%` : crossPercent > 50 ? `B ${(crossPercent - 50) * 2}%` : 'CENTER'}
-        </div>
+      </div>
+
+      {/* Status */}
+      <div style={{ textAlign: 'center', fontSize: 10, color: '#6666aa' }}>
+        {crossPercent < 50 ? `A ${100 - crossPercent * 2}%` : crossPercent > 50 ? `B ${(crossPercent - 50) * 2}%` : 'CENTER'}
       </div>
     </div>
   )

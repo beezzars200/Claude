@@ -8,7 +8,7 @@ import Broadcast from './components/Broadcast'
 import Recorder from './components/Recorder'
 
 export default function App() {
-  const { activeTab, setActiveTab } = useStore()
+  const { activeTab, setActiveTab, deckA, deckB } = useStore()
   const audioEngine = useAudioEngine()
 
   return (
@@ -98,7 +98,13 @@ export default function App() {
 
         {/* Center column: Mixer + bottom panel */}
         <div style={{ flex: '0 0 220px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <Mixer audioEngine={audioEngine} getAnalyserData={audioEngine.getAnalyserData} />
+          <Mixer
+            audioEngine={audioEngine}
+            getAnalyserData={audioEngine.getAnalyserData}
+            setEQ={audioEngine.setEQ}
+            deckAEQ={{ low: deckA.eqLow, mid: deckA.eqMid, high: deckA.eqHigh }}
+            deckBEQ={{ low: deckB.eqLow, mid: deckB.eqMid, high: deckB.eqHigh }}
+          />
           <div style={{ flex: 1, overflow: 'hidden' }}>
             {activeTab === 'library' && <Library audioEngine={audioEngine} />}
             {activeTab === 'broadcast' && <Broadcast />}
