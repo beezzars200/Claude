@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from 'react'
+import React, { useEffect, useRef, useCallback, useState } from 'react'
 import { useStore } from '../store/useStore'
 
 interface DeckProps {
@@ -9,6 +9,8 @@ interface DeckProps {
     cueDeck: (deck: 'A' | 'B') => void
     seekDeck: (deck: 'A' | 'B', time: number) => void
     getWaveformData: (deck: 'A' | 'B') => Uint8Array | null
+    initAudio: () => void
+    loadTrack: (deck: 'A' | 'B', fileUrl: string, trackName: string) => Promise<void>
   }
 }
 
@@ -291,11 +293,32 @@ function Platter({ isPlaying, accent, size = 160 }: PlatterProps) {
   )
 }
 
+function hfToRgba(hf: number, alpha: number): string {
+  const t = Math.max(0, Math.min(1, hf))
+  let r: number, g: number, b: number
+  if (t < 0.5) {
+    // Red (255,50,50) → Green (0,255,136)
+    const u = t * 2
+    r = Math.round(255 + u * (0 - 255))
+    g = Math.round(50 + u * (255 - 50))
+    b = Math.round(50 + u * (136 - 50))
+  } else {
+    // Green (0,255,136) → Yellow (255,200,0)
+    const u = (t - 0.5) * 2
+    r = Math.round(0 + u * 255)
+    g = Math.round(255 + u * (200 - 255))
+    b = Math.round(136 + u * (0 - 136))
+  }
+  return `rgba(${r},${g},${b},${alpha})`
+}
+
 export default function Deck({ deck, audioEngine }: DeckProps) {
   const { playDeck, pauseDeck, cueDeck, seekDeck } = audioEngine
   const deckState = useStore((s) => (deck === 'A' ? s.deckA : s.deckB))
   const accent = ACCENT[deck]
   const bg = BG[deck]
+
+  const [isDragOver, setIsDragOver] = useState(false)
 
   // Refs for stale-closure-free playhead drawing
   const currentTimeRef = useRef(deckState.currentTime)
@@ -303,29 +326,9 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
   currentTimeRef.current = deckState.currentTime
   durationRef.current = deckState.duration
 
-  // Reference waveform (smaller, bottom)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const animRef = useRef<number>(0)
-
   // Top large waveform
   const topCanvasRef = useRef<HTMLCanvasElement>(null)
   const topAnimRef = useRef<number>(0)
-
-  // Green(0,255,136) → Teal(0,204,187) → Blue(0,136,255) based on HF ratio
-  const hfToRgba = (hf: number, alpha: number): string => {
-    const t = Math.max(0, Math.min(1, hf))
-    let g: number, b: number
-    if (t < 0.5) {
-      const u = t * 2
-      g = Math.round(255 + u * (204 - 255))
-      b = Math.round(136 + u * (187 - 136))
-    } else {
-      const u = (t - 0.5) * 2
-      g = Math.round(204 + u * (136 - 204))
-      b = Math.round(187 + u * (255 - 187))
-    }
-    return `rgba(0,${g},${b},${alpha})`
-  }
 
   // Shared waveform drawing logic — draws onto the given canvas
   const drawWaveformOnCanvas = useCallback((canvas: HTMLCanvasElement) => {
@@ -380,20 +383,7 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
       ctx.lineTo(W, H / 2)
       ctx.stroke()
     }
-  }, [deckState.waveform, deckState.waveformHF, accent, bg, deck])
-
-  // Reference waveform animation
-  const drawWaveform = useCallback(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    drawWaveformOnCanvas(canvas)
-    animRef.current = requestAnimationFrame(drawWaveform)
-  }, [drawWaveformOnCanvas])
-
-  useEffect(() => {
-    animRef.current = requestAnimationFrame(drawWaveform)
-    return () => cancelAnimationFrame(animRef.current)
-  }, [drawWaveform])
+  }, [deckState.waveform, deckState.waveformHF, accent, bg])
 
   // Top large waveform animation
   const drawTopWaveform = useCallback(() => {
@@ -413,6 +403,18 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
     const rect = e.currentTarget.getBoundingClientRect()
     const ratio = (e.clientX - rect.left) / rect.width
     seekDeck(deck, ratio * deckState.duration)
+  }
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragOver(false)
+    const trackId = e.dataTransfer.getData('trackId')
+    if (!trackId) return
+    // Look up track from store
+    const track = useStore.getState().tracks.find(t => t.id === trackId)
+    if (!track) return
+    audioEngine.initAudio()
+    await audioEngine.loadTrack(deck, track.fileUrl, track.name)
   }
 
   return (
@@ -480,46 +482,29 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
           </div>
         </div>
 
-        {/* Track name */}
+        {/* Drop zone (replaces old track name display + small waveform + scrubber) */}
         <div
+          onDrop={handleDrop}
+          onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
+          onDragLeave={() => setIsDragOver(false)}
           style={{
-            background: '#0f0f18',
-            border: '1px solid #2a2a3a',
+            border: `1px dashed ${isDragOver ? accent : '#3a3a5a'}`,
             borderRadius: 6,
             padding: '6px 10px',
-            fontSize: 12,
-            color: deckState.track ? '#e0e0f0' : '#444460',
+            background: isDragOver ? `${accent}12` : '#0f0f18',
+            transition: 'all 0.15s',
+            minHeight: 36,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 11,
+            color: deckState.track ? '#e0e0f0' : (isDragOver ? accent : '#444460'),
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap'
           }}
         >
-          {deckState.track?.name ?? 'No track loaded — drag from library'}
-        </div>
-
-        {/* Reference Waveform (smaller) */}
-        <canvas
-          ref={canvasRef}
-          width={600}
-          height={80}
-          style={{
-            borderRadius: 6,
-            cursor: deckState.isLoaded ? 'crosshair' : 'default',
-            border: '1px solid #2a2a3a',
-            width: '100%',
-            height: 40
-          }}
-          onClick={handleSeek}
-        />
-
-        {/* Progress scrubber */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Scrubber
-            value={deckState.currentTime}
-            max={deckState.duration || 1}
-            onChange={(v) => seekDeck(deck, v)}
-            accent={accent}
-          />
+          {deckState.track?.name ?? `Drop track → Deck ${deck}`}
         </div>
 
         {/* Controls row */}

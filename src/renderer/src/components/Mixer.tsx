@@ -22,17 +22,21 @@ interface MixerProps {
 
 function hfToRgba(hf: number, alpha: number): string {
   const t = Math.max(0, Math.min(1, hf))
-  let g: number, b: number
+  let r: number, g: number, b: number
   if (t < 0.5) {
+    // Red (255,50,50) → Green (0,255,136)
     const u = t * 2
-    g = Math.round(255 + u * (204 - 255))
-    b = Math.round(136 + u * (187 - 136))
+    r = Math.round(255 + u * (0 - 255))
+    g = Math.round(50 + u * (255 - 50))
+    b = Math.round(50 + u * (136 - 50))
   } else {
+    // Green (0,255,136) → Yellow (255,200,0)
     const u = (t - 0.5) * 2
-    g = Math.round(204 + u * (136 - 204))
-    b = Math.round(187 + u * (255 - 187))
+    r = Math.round(0 + u * 255)
+    g = Math.round(255 + u * (200 - 255))
+    b = Math.round(136 + u * (0 - 136))
   }
-  return `rgba(0,${g},${b},${alpha})`
+  return `rgba(${r},${g},${b},${alpha})`
 }
 
 // ----- Vertical Waveform -----
@@ -418,8 +422,18 @@ export default function Mixer({
         levelBRef.current = Math.max(0, levelBRef.current - 0.04)
       }
 
-      updateVUBars(masterLBarRefs, levelARef.current, '#ffffff', MASTER_BARS)
-      updateVUBars(masterRBarRefs, levelBRef.current, '#ffffff', MASTER_BARS)
+      const isA = isPlayingARef.current
+      const isB = isPlayingBRef.current
+      let masterLevel = 0
+      if (isA && isB) {
+        masterLevel = Math.min(1, (levelARef.current + levelBRef.current) * 0.6)
+      } else if (isA) {
+        masterLevel = levelARef.current
+      } else if (isB) {
+        masterLevel = levelBRef.current
+      }
+      updateVUBars(masterLBarRefs, masterLevel, '#ffffff', MASTER_BARS)
+      updateVUBars(masterRBarRefs, masterLevel, '#ffffff', MASTER_BARS)
       updateVUBars(vuABarRefs, levelARef.current, '#00ff88', EQ_BARS)
       updateVUBars(vuBBarRefs, levelBRef.current, '#0088ff', EQ_BARS)
 
@@ -457,8 +471,7 @@ export default function Mixer({
             accent="#00ff88"
           />
         </div>
-        <div style={{ fontSize: 9, color: '#5555aa', letterSpacing: '0.1em' }}>MIXER</div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
           <div style={{ fontSize: 9, color: '#0088ff', letterSpacing: '0.08em', fontWeight: 700 }}>VOL B</div>
           <Knob
             label="VOL"
