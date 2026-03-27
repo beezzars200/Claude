@@ -511,12 +511,25 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
         display: 'flex',
         flexDirection: 'row',
         height: '100%',
-        gap: 10,
+        gap: 8,
         alignItems: 'center',
         boxShadow: 'none',
         transition: 'border-color 0.3s'
       }}
     >
+      {deck === 'A' && (
+        <TransportColumn
+          deck={deck}
+          isPlaying={deckState.isPlaying}
+          isLoaded={deckState.isLoaded}
+          accent={accent}
+          onPlay={() => playDeck(deck)}
+          onPause={() => pauseDeck(deck)}
+          onCue={() => cueDeck(deck)}
+          onStop={() => { pauseDeck(deck); seekDeck(deck, 0) }}
+        />
+      )}
+
       {deck === 'A' && (
         <Platter isPlaying={deckState.isPlaying} accent={accent} size={150} />
       )}
@@ -566,7 +579,7 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
           </div>
         </div>
 
-        {/* Drop zone (replaces old track name display + small waveform + scrubber) */}
+        {/* Drop zone */}
         <div
           onDrop={handleDrop}
           onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
@@ -583,89 +596,49 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
             justifyContent: 'center',
             fontSize: 11,
             color: deckState.track ? '#e0e0f0' : (isDragOver ? accent : '#444460'),
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap'
+            overflow: 'hidden'
           }}
         >
-          {deckState.track?.name ?? `Drop track → Deck ${deck}`}
+          {deckState.track ? (
+            <div style={{ overflow: 'hidden', width: '100%' }}>
+              <div style={{ fontSize: 12, color: '#e0e0f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {deckState.track.title ?? deckState.track.name}
+              </div>
+              {deckState.track.artist && (
+                <div style={{ fontSize: 10, color: '#8888aa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {deckState.track.artist}
+                </div>
+              )}
+            </div>
+          ) : `Drop track → Deck ${deck}`}
         </div>
 
-        {/* Controls row */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-          {/* CUE */}
-          <button
-            onClick={() => cueDeck(deck)}
-            disabled={!deckState.isLoaded}
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: '50%',
-              border: '2px solid #ccaa00',
-              background: '#1a1500',
-              color: '#ffcc00',
-              cursor: deckState.isLoaded ? 'pointer' : 'not-allowed',
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: '0.05em',
-              opacity: deckState.isLoaded ? 1 : 0.4,
-              transition: 'all 0.15s'
-            }}
-          >
-            CUE
-          </button>
-
-          {/* Play / Pause */}
-          <button
-            onClick={() => deckState.isPlaying ? pauseDeck(deck) : playDeck(deck)}
-            disabled={!deckState.isLoaded}
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: '50%',
-              border: `2px solid ${accent}`,
-              background: deckState.isPlaying ? accent : bg,
-              color: deckState.isPlaying ? '#0a0a10' : accent,
-              cursor: deckState.isLoaded ? 'pointer' : 'not-allowed',
-              fontSize: 22,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity: deckState.isLoaded ? 1 : 0.4,
-              boxShadow: deckState.isPlaying ? `0 0 16px ${accent}60` : 'none',
-              transition: 'all 0.15s'
-            }}
-          >
-            {deckState.isPlaying ? '⏸' : '▶'}
-          </button>
-
-          {/* Stop */}
-          <button
-            onClick={() => { pauseDeck(deck); seekDeck(deck, 0) }}
-            disabled={!deckState.isLoaded}
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 6,
-              border: '1px solid #3a3a5a',
-              background: '#1a1a24',
-              color: '#8888aa',
-              cursor: deckState.isLoaded ? 'pointer' : 'not-allowed',
-              fontSize: 14,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity: deckState.isLoaded ? 1 : 0.4,
-              transition: 'all 0.15s'
-            }}
-          >
-            ⏹
-          </button>
+        {/* Scrubber */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Scrubber
+            value={deckState.currentTime}
+            max={deckState.duration}
+            onChange={(v) => seekDeck(deck, v)}
+            accent={accent}
+          />
         </div>
       </div>
 
       {deck === 'B' && (
         <Platter isPlaying={deckState.isPlaying} accent={accent} size={150} />
+      )}
+
+      {deck === 'B' && (
+        <TransportColumn
+          deck={deck}
+          isPlaying={deckState.isPlaying}
+          isLoaded={deckState.isLoaded}
+          accent={accent}
+          onPlay={() => playDeck(deck)}
+          onPause={() => pauseDeck(deck)}
+          onCue={() => cueDeck(deck)}
+          onStop={() => { pauseDeck(deck); seekDeck(deck, 0) }}
+        />
       )}
 
     </div>
