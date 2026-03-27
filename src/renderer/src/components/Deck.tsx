@@ -494,14 +494,20 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
     setIsDragOver(false)
     const trackId = e.dataTransfer.getData('trackId')
     if (!trackId) return
-    // Look up track from store, or create it from drag data
+
+    // Find existing track from library/queue, or build a minimal one from drag data.
+    // Do NOT call addTracks — dropping onto a deck must not add to the queue.
     let track = useStore.getState().tracks.find(t => t.id === trackId)
     if (!track) {
       const rawName = e.dataTransfer.getData('trackName')
       const trackName = rawName || trackId.split('/').pop()?.replace(/\.[^/.]+$/, '') || 'Unknown'
       track = { id: trackId, name: trackName, filePath: trackId, fileUrl: trackId }
-      useStore.getState().addTracks([track])
     }
+
+    // Show track name on deck immediately (loadTrack will enrich it with ID3 metadata)
+    const deckSetter = deck === 'A' ? useStore.getState().setDeckA : useStore.getState().setDeckB
+    deckSetter({ track, isLoaded: false })
+
     audioEngine.initAudio()
     await audioEngine.loadTrack(deck, track.fileUrl, track.name)
   }

@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback } from 'react'
-import { useStore } from '../store/useStore'
+import { useStore, Track } from '../store/useStore'
 
 interface DeckNodes {
   source: AudioBufferSourceNode | null
@@ -184,7 +184,28 @@ export function useAudioEngine() {
       const eng = engineRef.current
       if (!eng.context) return
 
+      const setter = deck === 'A' ? setDeckA : setDeckB
+
       try {
+        // Fetch ID3 metadata first (fast — just reads tags, no audio decode)
+        let artist: string | undefined
+        let title: string | undefined
+        try {
+          const meta = await window.api.getMetadata(fileUrl)
+          artist = meta.artist ?? undefined
+          title = meta.title ?? undefined
+        } catch { /* ignore — metadata is optional */ }
+
+        const displayName = title ? (artist ? `${artist} - ${title}` : title) : trackName
+
+        // Update the track on the deck with proper name/metadata
+        const currentDeck = deck === 'A' ? storeRef.current.deckA : storeRef.current.deckB
+        const updatedTrack: Track = currentDeck.track
+          ? { ...currentDeck.track, name: displayName, artist, title }
+          : { id: fileUrl, name: displayName, filePath: fileUrl, fileUrl, artist, title }
+        setter({ track: updatedTrack })
+
+        // Read and decode audio
         const arrayBuffer = await window.api.readAudioFile(fileUrl)
         const audioBuffer = await eng.context.decodeAudioData(arrayBuffer)
 
@@ -202,13 +223,9 @@ export function useAudioEngine() {
         deckNodes.startOffset = 0
         deckNodes.isPlaying = false
 
-        // Estimate BPM (simple approximation)
         const bpm = estimateBPM(audioBuffer)
-
-        // Pre-render waveform + frequency coloring
         const { waveform, waveformLF, waveformMF, waveformHF } = computeWaveformData(audioBuffer)
 
-        const setter = deck === 'A' ? setDeckA : setDeckB
         setter({
           isLoaded: true,
           isPlaying: false,
@@ -222,47 +239,50 @@ export function useAudioEngine() {
         })
       } catch (err) {
         console.error('Failed to load track:', err)
+        setter({ isLoaded: false })
       }
     },
     [initAudio, setDeckA, setDeckB]
   )
 
-  // Pre-render waveform amplitude + 3 frequency bands per bar
-  function computeWaveformData(buffer: AudioBuffer, numPoints: number = 800): {
+  // Pre-render waveform amplitude + 3 frequency bands per bar.
+  // O(n) — single pass per block, no nested loops (previous version had O(n²) inner loop).
+  function computeWaveformData(buffer: AudioBuffer, numPoints = 800): {
     waveform: Float32Array; waveformLF: Float32Array; waveformMF: Float32Array; waveformHF: Float32Array
   } {
     const channelData = buffer.getChannelData(0)
-    const blockSize = Math.floor(channelData.length / numPoints)
+    const total = channelData.length
+    const blockSize = Math.max(1, Math.floor(total / numPoints))
     const waveform = new Float32Array(numPoints)
     const waveformLF = new Float32Array(numPoints)
     const waveformMF = new Float32Array(numPoints)
     const waveformHF = new Float32Array(numPoints)
 
+    // Sparse step for LF approximation: sample every Nth sample within the block
+    // instead of the old O(blockSize²) sliding window.
+    const sparseStep = Math.max(1, Math.floor(blockSize / 16))
+
     for (let i = 0; i < numPoints; i++) {
-      const offset = i * blockSize
-      let totalE = 0, diffE = 0, slowE = 0
-      const slowWindow = Math.max(1, Math.floor(blockSize / 8))
+      const start = i * blockSize
+      const end = Math.min(start + blockSize, total)
+      let sumAbs = 0, sumDiff = 0, sumSparse = 0, sparseCount = 0
 
-      for (let j = 1; j < blockSize; j++) {
-        const s = channelData[offset + j]
-        const prev = channelData[offset + j - 1]
-        totalE += Math.abs(s)
-        diffE += Math.abs(s - prev)
+      for (let j = start; j < end; j++) {
+        const s = Math.abs(channelData[j])
+        sumAbs += s
+        if (j > start) sumDiff += Math.abs(channelData[j] - channelData[j - 1])
+        if ((j - start) % sparseStep === 0) { sumSparse += s; sparseCount++ }
       }
-      for (let j = 0; j < blockSize - slowWindow; j++) {
-        let avg = 0
-        for (let k = 0; k < slowWindow; k++) avg += Math.abs(channelData[offset + j + k])
-        slowE += avg / slowWindow
-      }
-      slowE /= Math.max(1, blockSize - slowWindow)
 
-      const avgTotal = totalE / Math.max(1, blockSize)
-      const avgDiff = diffE / Math.max(1, blockSize)
+      const n = end - start
+      const avgAbs = sumAbs / n
+      const avgDiff = n > 1 ? sumDiff / (n - 1) : 0
+      const lfApprox = sparseCount > 0 ? sumSparse / sparseCount : avgAbs
 
-      waveform[i] = avgTotal
-      waveformLF[i] = slowE
-      waveformHF[i] = Math.min(avgTotal, avgDiff * 0.5)
-      waveformMF[i] = Math.max(0, avgTotal - slowE * 0.7 - avgDiff * 0.3)
+      waveform[i] = avgAbs
+      waveformLF[i] = lfApprox
+      waveformHF[i] = Math.min(avgAbs, avgDiff * 0.5)
+      waveformMF[i] = Math.max(0, avgAbs - lfApprox * 0.7 - avgDiff * 0.3)
     }
 
     const normalise = (arr: Float32Array) => {
