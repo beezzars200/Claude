@@ -134,70 +134,6 @@ function Scrubber({ value, max, onChange, accent }: { value: number; max: number
   )
 }
 
-// ----- Vinyl Platter -----
-
-function Platter({ isPlaying, accent, size = 120 }: { isPlaying: boolean; accent: string; size?: number }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const angleRef = useRef(0)
-  const rafRef = useRef<number>(0)
-  const lastTimeRef = useRef<number>(0)
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    const draw = (ts: number) => {
-      if (isPlaying) {
-        const delta = lastTimeRef.current ? ts - lastTimeRef.current : 0
-        angleRef.current = (angleRef.current + delta * 0.1) % 360
-      }
-      lastTimeRef.current = ts
-
-      const W = canvas.width, H = canvas.height, cx = W / 2, cy = H / 2, r = W / 2 - 2
-      ctx.clearRect(0, 0, W, H)
-      ctx.save()
-      ctx.translate(cx, cy)
-      ctx.rotate((angleRef.current * Math.PI) / 180)
-      ctx.translate(-cx, -cy)
-
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fillStyle = '#111118'; ctx.fill()
-
-      for (let ri = 10; ri < r - 20; ri += 6) {
-        ctx.beginPath(); ctx.arc(cx, cy, ri, 0, Math.PI * 2)
-        ctx.strokeStyle = `rgba(255,255,255,${ri % 12 === 0 ? 0.06 : 0.02})`
-        ctx.lineWidth = 1; ctx.stroke()
-      }
-
-      const labelR = r * 0.35
-      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, labelR)
-      g.addColorStop(0, accent + 'aa'); g.addColorStop(0.6, accent + '44'); g.addColorStop(1, accent + '22')
-      ctx.beginPath(); ctx.arc(cx, cy, labelR, 0, Math.PI * 2); ctx.fillStyle = g; ctx.fill()
-      ctx.strokeStyle = accent + '60'; ctx.lineWidth = 1.5; ctx.stroke()
-
-      ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fillStyle = '#0a0a14'; ctx.fill()
-      ctx.restore()
-
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2)
-      ctx.strokeStyle = isPlaying ? accent + '40' : '#2a2a3a'; ctx.lineWidth = 2; ctx.stroke()
-
-      rafRef.current = requestAnimationFrame(draw)
-    }
-
-    rafRef.current = requestAnimationFrame(draw)
-    return () => cancelAnimationFrame(rafRef.current)
-  }, [isPlaying, accent])
-
-  return (
-    <canvas ref={canvasRef} width={size} height={size} style={{
-      width: size, height: size, borderRadius: '50%', flexShrink: 0,
-      boxShadow: isPlaying ? `0 0 28px ${accent}50, 0 4px 16px rgba(0,0,0,0.7)` : '0 4px 16px rgba(0,0,0,0.6)',
-      transition: 'box-shadow 0.3s'
-    }} />
-  )
-}
-
 // ----- Premium Button -----
 
 function PremiumBtn({ onClick, disabled = false, active = false, color, size = 48, children, label }: {
@@ -494,31 +430,6 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
 
   const otherDeckBPM = useStore((s) => (deck === 'A' ? s.deckB : s.deckA).bpm)
 
-  // Transport buttons (shared for both decks, order is flipped per deck)
-  const transportButtons = (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-      <PremiumBtn
-        onClick={() => audioEngine.syncDeck(deck)}
-        disabled={!deckState.isLoaded || !deckState.bpm || !otherDeckBPM}
-        color="#aa88ff"
-        size={48}
-        label="Sync BPM to other deck"
-      >SYNC</PremiumBtn>
-      <PremiumBtn onClick={() => cueDeck(deck)} disabled={!deckState.isLoaded} color="#ccaa00" size={48} label="CUE">CUE</PremiumBtn>
-      <PremiumBtn
-        onClick={deckState.isPlaying ? () => pauseDeck(deck) : () => playDeck(deck)}
-        disabled={!deckState.isLoaded}
-        active={deckState.isPlaying}
-        color={accent}
-        size={48}
-        label={deckState.isPlaying ? 'Pause' : 'Play'}
-      >
-        {deckState.isPlaying ? '⏸' : '▶'}
-      </PremiumBtn>
-      <PremiumBtn onClick={() => { pauseDeck(deck); seekDeck(deck, 0) }} disabled={!deckState.isLoaded} color="#556688" size={48} label="Stop">■</PremiumBtn>
-    </div>
-  )
-
   return (
     <div style={{
       background: '#14141e',
@@ -646,32 +557,41 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
         </div>
       </div>
 
-      {/* ── ROW 3: Platter + Nudge + Transport buttons ── */}
+      {/* ── ROW 3: Transport + Nudge — flat horizontal bar ── */}
       <div style={{
         display: 'flex',
         flexDirection: 'row',
-        gap: 8,
+        gap: 6,
         alignItems: 'center',
         justifyContent: deck === 'A' ? 'flex-start' : 'flex-end',
-        marginTop: 'auto',
-        paddingTop: 4
+        paddingTop: 6
       }}>
+        <NudgeBtn deck={deck} direction={-1} audioEngine={audioEngine} disabled={!deckState.isPlaying} />
         {deck === 'A' && (
           <>
-            <NudgeBtn deck={deck} direction={-1} audioEngine={audioEngine} disabled={!deckState.isPlaying} />
-            <Platter isPlaying={deckState.isPlaying} accent={accent} size={120} />
-            <NudgeBtn deck={deck} direction={1} audioEngine={audioEngine} disabled={!deckState.isPlaying} />
-            {transportButtons}
+            <PremiumBtn onClick={() => cueDeck(deck)} disabled={!deckState.isLoaded} color="#ccaa00" size={44} label="CUE">CUE</PremiumBtn>
+            <PremiumBtn
+              onClick={deckState.isPlaying ? () => pauseDeck(deck) : () => playDeck(deck)}
+              disabled={!deckState.isLoaded} active={deckState.isPlaying}
+              color={accent} size={44} label={deckState.isPlaying ? 'Pause' : 'Play'}
+            >{deckState.isPlaying ? '⏸' : '▶'}</PremiumBtn>
+            <PremiumBtn onClick={() => { pauseDeck(deck); seekDeck(deck, 0) }} disabled={!deckState.isLoaded} color="#556688" size={44} label="Stop">■</PremiumBtn>
+            <PremiumBtn onClick={() => audioEngine.syncDeck(deck)} disabled={!deckState.isLoaded || !deckState.bpm || !otherDeckBPM} color="#aa88ff" size={44} label="Sync BPM to other deck">SYNC</PremiumBtn>
           </>
         )}
         {deck === 'B' && (
           <>
-            {transportButtons}
-            <NudgeBtn deck={deck} direction={-1} audioEngine={audioEngine} disabled={!deckState.isPlaying} />
-            <Platter isPlaying={deckState.isPlaying} accent={accent} size={120} />
-            <NudgeBtn deck={deck} direction={1} audioEngine={audioEngine} disabled={!deckState.isPlaying} />
+            <PremiumBtn onClick={() => audioEngine.syncDeck(deck)} disabled={!deckState.isLoaded || !deckState.bpm || !otherDeckBPM} color="#aa88ff" size={44} label="Sync BPM to other deck">SYNC</PremiumBtn>
+            <PremiumBtn onClick={() => { pauseDeck(deck); seekDeck(deck, 0) }} disabled={!deckState.isLoaded} color="#556688" size={44} label="Stop">■</PremiumBtn>
+            <PremiumBtn
+              onClick={deckState.isPlaying ? () => pauseDeck(deck) : () => playDeck(deck)}
+              disabled={!deckState.isLoaded} active={deckState.isPlaying}
+              color={accent} size={44} label={deckState.isPlaying ? 'Pause' : 'Play'}
+            >{deckState.isPlaying ? '⏸' : '▶'}</PremiumBtn>
+            <PremiumBtn onClick={() => cueDeck(deck)} disabled={!deckState.isLoaded} color="#ccaa00" size={44} label="CUE">CUE</PremiumBtn>
           </>
         )}
+        <NudgeBtn deck={deck} direction={1} audioEngine={audioEngine} disabled={!deckState.isPlaying} />
       </div>
 
     </div>

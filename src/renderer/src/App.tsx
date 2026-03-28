@@ -100,8 +100,8 @@ export default function App() {
         </div>
       </div>
 
-      {/* Bottom section: Library / File Browser — full width */}
-      <div style={{ flex: '0 0 300px', padding: '0 8px 8px 8px', minHeight: 0 }}>
+      {/* Bottom section: Library — full width, bigger */}
+      <div style={{ flex: '0 0 400px', padding: '0 8px 8px 8px', minHeight: 0 }}>
         <Library audioEngine={audioEngine} />
       </div>
     </div>

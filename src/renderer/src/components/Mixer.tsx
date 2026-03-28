@@ -118,9 +118,9 @@ function VerticalWaveform({ waveform, waveformLF, waveformMF, waveformHF, curren
   return (
     <canvas
       ref={canvasRef}
-      width={56}
+      width={32}
       height={200}
-      style={{ width: 56, height: '100%', display: 'block', borderRadius: 4 }}
+      style={{ width: 32, height: '100%', display: 'block', borderRadius: 4 }}
     />
   )
 }
@@ -458,7 +458,20 @@ export default function Mixer({
         height: '100%'
       }}
     >
-      {/* Row 1: EQ+VOL A | VertWave A | Master VU + Knob | VertWave B | EQ+VOL B */}
+      {/* Row 1: Crossfader */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: '#8888aa' }}>
+          <span style={{ color: '#00ff88', fontWeight: 700 }}>A</span>
+          <span style={{ letterSpacing: '0.06em' }}>CROSSFADER</span>
+          <span style={{ color: '#0088ff', fontWeight: 700 }}>B</span>
+        </div>
+        <HorizontalFader value={crossfader} onChange={updateCrossfader} />
+        <div style={{ textAlign: 'center', fontSize: 10, color: '#6666aa' }}>
+          {crossPercent < 50 ? `A ${100 - crossPercent * 2}%` : crossPercent > 50 ? `B ${(crossPercent - 50) * 2}%` : 'CENTER'}
+        </div>
+      </div>
+
+      {/* Row 2: EQ+VOL A | VertWave A | Master VU + Knob | VertWave B | EQ+VOL B */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
         <EQStrip
           deck="A"
@@ -470,7 +483,7 @@ export default function Mixer({
           onVolChange={(v) => setDeckVolume('A', v)}
         />
 
-        <div style={{ flex: '0 0 56px', alignSelf: 'stretch' }}>
+        <div style={{ flex: '0 0 32px', alignSelf: 'stretch' }}>
           <VerticalWaveform
             deck="A"
             waveform={deckAWave.waveform}
@@ -494,7 +507,7 @@ export default function Mixer({
           <div style={{ fontSize: 9, color: '#e0e0f0' }}>{Math.round(masterVolume * 100)}%</div>
         </div>
 
-        <div style={{ flex: '0 0 56px', alignSelf: 'stretch' }}>
+        <div style={{ flex: '0 0 32px', alignSelf: 'stretch' }}>
           <VerticalWaveform
             deck="B"
             waveform={deckBWave.waveform}
@@ -516,25 +529,6 @@ export default function Mixer({
           volValue={deckBVolume}
           onVolChange={(v) => setDeckVolume('B', v)}
         />
-      </div>
-
-      {/* Row 3: Crossfader — centre third only */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: '#8888aa' }}>
-          <span style={{ color: '#00ff88', fontWeight: 700 }}>A</span>
-          <span style={{ letterSpacing: '0.06em' }}>CROSSFADER</span>
-          <span style={{ color: '#0088ff', fontWeight: 700 }}>B</span>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <div style={{ width: '60%' }}>
-            <HorizontalFader value={crossfader} onChange={updateCrossfader} />
-          </div>
-        </div>
-      </div>
-
-      {/* Row 4: Status text */}
-      <div style={{ textAlign: 'center', fontSize: 10, color: '#6666aa' }}>
-        {crossPercent < 50 ? `A ${100 - crossPercent * 2}%` : crossPercent > 50 ? `B ${(crossPercent - 50) * 2}%` : 'CENTER'}
       </div>
     </div>
   )

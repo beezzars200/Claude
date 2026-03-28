@@ -3,6 +3,7 @@ import { electronAPI } from '@electron-toolkit/preload'
 
 // Custom APIs exposed to renderer
 const api = {
+  openFolder: (): Promise<string | null> => ipcRenderer.invoke('dialog:openFolder'),
   openAudioFiles: (): Promise<string[]> => ipcRenderer.invoke('dialog:openAudioFiles'),
 
   saveRecording: (defaultName: string): Promise<string | null> =>

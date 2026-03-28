@@ -43,6 +43,16 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  // IPC: Open folder picker dialog
+  ipcMain.handle('dialog:openFolder', async () => {
+    const result = await dialog.showOpenDialog({
+      title: 'Link Folder',
+      properties: ['openDirectory']
+    })
+    if (result.canceled || result.filePaths.length === 0) return null
+    return result.filePaths[0]
+  })
+
   // IPC: Open audio files dialog
   ipcMain.handle('dialog:openAudioFiles', async () => {
     const result = await dialog.showOpenDialog({
