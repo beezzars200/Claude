@@ -62,6 +62,9 @@ function createDeckNodes(ctx: AudioContext, masterGain: GainNode, recorderDest: 
   const outputGain = ctx.createGain()
   const analyser = ctx.createAnalyser()
   analyser.fftSize = 512
+  analyser.minDecibels = -90      // silence → byte 0
+  analyser.maxDecibels = 0        // 0 dBFS → byte 255  (was -30, causing everything to clip)
+  analyser.smoothingTimeConstant = 0  // we handle smoothing ourselves in the VU animate loop
 
   eqLow.type = 'lowshelf'
   eqLow.frequency.value = 200

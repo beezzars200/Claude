@@ -400,13 +400,16 @@ export default function Mixer({
 
   useEffect(() => {
     const rmsLevel = (data: Uint8Array): number => {
+      // Analyser now uses 0 dBFS = 255, -90 dBFS = 0, so values are meaningful.
+      // Typical music averages -14 to -20 dBFS → bins ~170-215.
+      // RMS of all bins (most are silent at high freqs) ≈ 0.30-0.45.
+      // Scale ×2.2 puts normal music at 65-99%, peaks hit red briefly.
       let sumSq = 0
       for (let i = 0; i < data.length; i++) {
         const v = data[i] / 255
         sumSq += v * v
       }
-      // Scale so typical music RMS (~0.15-0.25) maps to 60-90% of meter
-      return Math.min(1, Math.sqrt(sumSq / data.length) * 5.5)
+      return Math.min(1, Math.sqrt(sumSq / data.length) * 2.2)
     }
 
     const animate = () => {
