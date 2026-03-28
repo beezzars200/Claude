@@ -12,6 +12,9 @@ interface DeckProps {
     initAudio: () => void
     loadTrack: (deck: 'A' | 'B', fileUrl: string, trackName: string) => Promise<void>
     setPitch: (deck: 'A' | 'B', value: number) => void
+    syncDeck: (deck: 'A' | 'B') => void
+    nudgeDeck: (deck: 'A' | 'B', direction: 1 | -1) => void
+    stopNudge: (deck: 'A' | 'B') => void
   }
 }
 
@@ -222,7 +225,7 @@ function PremiumBtn({ onClick, disabled = false, active = false, color, size = 4
   )
 }
 
-// ----- Vertical Tempo Slider (±6%, 0.1% display resolution) -----
+// ----- Vertical Tempo Slider (±16%, 0.1% display resolution) -----
 
 function VerticalTempoSlider({ value, onChange, accent, height = 160 }: {
   value: number; onChange: (v: number) => void; accent: string; height?: number
@@ -249,11 +252,14 @@ function VerticalTempoSlider({ value, onChange, accent, height = 160 }: {
     window.addEventListener('mouseup', onUp)
   }
 
-  // ±6% range, 0.12 coefficient matches audio engine setPitch
-  const pct = (value - 0.5) * 12
+  // ±16% range, 0.32 coefficient matches audio engine setPitch
+  const pct = (value - 0.5) * 32
   const atCenter = Math.abs(pct) < 0.05
   const displayStr = atCenter ? '±0.0%' : `${pct > 0 ? '+' : ''}${pct.toFixed(1)}%`
   const capW = 48, capH = 24, trackW = 10
+
+  // Pixel-based cap position — prevents cap from clipping outside container at extremes
+  const capTopPx = capH / 2 + (1 - value) * (height - capH)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flexShrink: 0 }}>
@@ -294,22 +300,23 @@ function VerticalTempoSlider({ value, onChange, accent, height = 160 }: {
           }} />
         </div>
 
-        {/* Tick marks at ±2%, ±4% */}
-        {[-4, -2, 2, 4].map(t => {
-          const pos = (1 - (t / 12 + 0.5)) * 100
+        {/* Tick marks at ±4%, ±8%, ±12% */}
+        {[-12, -8, -4, 4, 8, 12].map(t => {
+          const pos = (1 - (t / 32 + 0.5)) * 100
           return (
             <div key={t} style={{
               position: 'absolute', right: 2,
               top: `${pos}%`, transform: 'translateY(-50%)',
-              width: 5, height: 1, background: '#3a3a5a'
+              width: t % 8 === 0 ? 7 : 5, height: 1,
+              background: t % 8 === 0 ? '#4a4a6a' : '#3a3a5a'
             }} />
           )
         })}
 
-        {/* Fader cap */}
+        {/* Fader cap — pixel-based to stay within container at extremes */}
         <div style={{
           position: 'absolute',
-          left: '50%', top: `${(1 - value) * 100}%`,
+          left: '50%', top: capTopPx,
           transform: 'translate(-50%, -50%)',
           width: capW, height: capH, borderRadius: 6,
           background: 'linear-gradient(180deg, #3e3e56 0%, #26263a 40%, #26263a 60%, #3e3e56 100%)',
@@ -334,6 +341,37 @@ function VerticalTempoSlider({ value, onChange, accent, height = 160 }: {
         {displayStr}
       </div>
     </div>
+  )
+}
+
+// ----- Nudge Button -----
+
+function NudgeBtn({ deck, direction, audioEngine, disabled }: {
+  deck: 'A' | 'B'; direction: 1 | -1;
+  audioEngine: { nudgeDeck: (d: 'A' | 'B', dir: 1 | -1) => void; stopNudge: (d: 'A' | 'B') => void }
+  disabled: boolean
+}) {
+  return (
+    <button
+      onMouseDown={() => audioEngine.nudgeDeck(deck, direction)}
+      onMouseUp={() => audioEngine.stopNudge(deck)}
+      onMouseLeave={() => audioEngine.stopNudge(deck)}
+      disabled={disabled}
+      title={direction === -1 ? 'Nudge back (hold)' : 'Nudge forward (hold)'}
+      style={{
+        width: 32, height: 48, borderRadius: 6,
+        border: '1px solid #3a3a5a',
+        background: 'linear-gradient(145deg, #1a1a28, #10101a)',
+        color: disabled ? '#3a3a5a' : '#8888cc',
+        fontSize: 13, fontWeight: 700,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexShrink: 0, userSelect: 'none',
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04), 0 2px 6px rgba(0,0,0,0.6)'
+      }}
+    >
+      {direction === -1 ? '«' : '»'}
+    </button>
   )
 }
 
@@ -447,17 +485,25 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
     await audioEngine.loadTrack(deck, track.fileUrl, track.name)
   }
 
-  // BPM adjusts with tempo: ±6% range, 0.12 coefficient matches audio engine
-  const playbackRate = 1.0 + (deckState.pitch - 0.5) * 0.12
+  // BPM adjusts with tempo: ±16% range, 0.32 coefficient matches audio engine
+  const playbackRate = 1.0 + (deckState.pitch - 0.5) * 0.32
   const rawBPM = deckState.bpm > 0 ? deckState.bpm * playbackRate : 0
-  // Show 1 decimal place for precise mixing (e.g. 128.3 BPM)
-  const displayBPM = rawBPM > 0 ? rawBPM.toFixed(1) : null
+  const displayBPM = rawBPM > 0 ? Math.round(rawBPM).toString() : null
 
   const remaining = Math.max(0, deckState.duration - deckState.currentTime)
+
+  const otherDeckBPM = useStore((s) => (deck === 'A' ? s.deckB : s.deckA).bpm)
 
   // Transport buttons (shared for both decks, order is flipped per deck)
   const transportButtons = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+      <PremiumBtn
+        onClick={() => audioEngine.syncDeck(deck)}
+        disabled={!deckState.isLoaded || !deckState.bpm || !otherDeckBPM}
+        color="#aa88ff"
+        size={48}
+        label="Sync BPM to other deck"
+      >SYNC</PremiumBtn>
       <PremiumBtn onClick={() => cueDeck(deck)} disabled={!deckState.isLoaded} color="#ccaa00" size={48} label="CUE">CUE</PremiumBtn>
       <PremiumBtn
         onClick={deckState.isPlaying ? () => pauseDeck(deck) : () => playDeck(deck)}
@@ -600,20 +646,32 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
         </div>
       </div>
 
-      {/* ── ROW 3: Platter + Transport buttons ── */}
+      {/* ── ROW 3: Platter + Nudge + Transport buttons ── */}
       <div style={{
         display: 'flex',
         flexDirection: 'row',
-        gap: 12,
+        gap: 8,
         alignItems: 'center',
         justifyContent: deck === 'A' ? 'flex-start' : 'flex-end',
         marginTop: 'auto',
         paddingTop: 4
       }}>
-        {deck === 'A' && <Platter isPlaying={deckState.isPlaying} accent={accent} size={120} />}
-        {deck === 'A' && transportButtons}
-        {deck === 'B' && transportButtons}
-        {deck === 'B' && <Platter isPlaying={deckState.isPlaying} accent={accent} size={120} />}
+        {deck === 'A' && (
+          <>
+            <NudgeBtn deck={deck} direction={-1} audioEngine={audioEngine} disabled={!deckState.isPlaying} />
+            <Platter isPlaying={deckState.isPlaying} accent={accent} size={120} />
+            <NudgeBtn deck={deck} direction={1} audioEngine={audioEngine} disabled={!deckState.isPlaying} />
+            {transportButtons}
+          </>
+        )}
+        {deck === 'B' && (
+          <>
+            {transportButtons}
+            <NudgeBtn deck={deck} direction={-1} audioEngine={audioEngine} disabled={!deckState.isPlaying} />
+            <Platter isPlaying={deckState.isPlaying} accent={accent} size={120} />
+            <NudgeBtn deck={deck} direction={1} audioEngine={audioEngine} disabled={!deckState.isPlaying} />
+          </>
+        )}
       </div>
 
     </div>

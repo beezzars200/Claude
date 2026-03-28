@@ -231,7 +231,7 @@ export function useAudioEngine() {
         // Accurate BPM detection using onset-strength autocorrelation
         let bpm = 120
         try {
-          bpm = await analyze(audioBuffer)
+          bpm = Math.round(await analyze(audioBuffer))
         } catch {
           bpm = fallbackBPM(audioBuffer)
         }
@@ -353,7 +353,7 @@ export function useAudioEngine() {
     let bpm = (frameRate * 60) / bestLag
     while (bpm < 70) bpm *= 2
     while (bpm > 175) bpm /= 2
-    return Math.round(bpm * 10) / 10
+    return Math.round(bpm)
   }
 
   const playDeck = useCallback(
@@ -442,17 +442,51 @@ export function useAudioEngine() {
     setter({ volume })
   }, [setDeckA, setDeckB])
 
-  // Pitch: value 0–1 where 0.5 = normal speed, 0 = -6%, 1 = +6%
+  // Pitch: value 0–1 where 0.5 = normal speed, 0 = -16%, 1 = +16%
   const setPitch = useCallback((deck: 'A' | 'B', value: number) => {
     const eng = engineRef.current
     const deckNodes = deck === 'A' ? eng.deckA : eng.deckB
     if (!deckNodes) return
-    const rate = 1.0 + (value - 0.5) * 0.12
+    const rate = 1.0 + (value - 0.5) * 0.32
     deckNodes.playbackRate = rate
     if (deckNodes.source) deckNodes.source.playbackRate.value = rate
     const setter = deck === 'A' ? setDeckA : setDeckB
     setter({ pitch: value })
   }, [setDeckA, setDeckB])
+
+  const syncDeck = useCallback((deck: 'A' | 'B') => {
+    const eng = engineRef.current
+    const myState = deck === 'A' ? storeRef.current.deckA : storeRef.current.deckB
+    const otherState = deck === 'A' ? storeRef.current.deckB : storeRef.current.deckA
+    if (!myState.bpm || !otherState.bpm) return
+
+    const otherEffectiveBPM = otherState.bpm * (1.0 + (otherState.pitch - 0.5) * 0.32)
+    const requiredRate = otherEffectiveBPM / myState.bpm
+    const clampedRate = Math.max(0.84, Math.min(1.16, requiredRate))
+    const pitchValue = Math.max(0, Math.min(1, (clampedRate - 1.0) / 0.32 + 0.5))
+
+    const deckNodes = deck === 'A' ? eng.deckA : eng.deckB
+    if (!deckNodes) return
+    deckNodes.playbackRate = clampedRate
+    if (deckNodes.source) deckNodes.source.playbackRate.value = clampedRate
+
+    const setter = deck === 'A' ? setDeckA : setDeckB
+    setter({ pitch: pitchValue })
+  }, [setDeckA, setDeckB])
+
+  const nudgeDeck = useCallback((deck: 'A' | 'B', direction: 1 | -1) => {
+    const eng = engineRef.current
+    const deckNodes = deck === 'A' ? eng.deckA : eng.deckB
+    if (!deckNodes || !deckNodes.isPlaying || !deckNodes.source) return
+    deckNodes.source.playbackRate.value = deckNodes.playbackRate + direction * 0.08
+  }, [])
+
+  const stopNudge = useCallback((deck: 'A' | 'B') => {
+    const eng = engineRef.current
+    const deckNodes = deck === 'A' ? eng.deckA : eng.deckB
+    if (!deckNodes || !deckNodes.source) return
+    deckNodes.source.playbackRate.value = deckNodes.playbackRate
+  }, [])
 
   const setEQ = useCallback(
     (deck: 'A' | 'B', band: 'low' | 'mid' | 'high', value: number) => {
@@ -603,6 +637,9 @@ export function useAudioEngine() {
     cueDeck,
     setDeckVolume,
     setPitch,
+    syncDeck,
+    nudgeDeck,
+    stopNudge,
     setEQ,
     updateCrossfader,
     updateMasterVolume,
