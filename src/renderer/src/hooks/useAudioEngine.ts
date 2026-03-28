@@ -9,6 +9,8 @@ interface DeckNodes {
   eqLow: BiquadFilterNode
   eqMid: BiquadFilterNode
   eqHigh: BiquadFilterNode
+  lpfNode: BiquadFilterNode
+  hpfNode: BiquadFilterNode
   outputGain: GainNode
   startTime: number
   startOffset: number
@@ -52,10 +54,24 @@ function createDeckNodes(ctx: AudioContext, masterGain: GainNode, recorderDest: 
   eqHigh.frequency.value = 3000
   eqHigh.gain.value = 0
 
+  // LP / HP filter nodes — start fully open (bypass)
+  const lpfNode = ctx.createBiquadFilter()
+  lpfNode.type = 'lowpass'
+  lpfNode.frequency.value = 20000
+  lpfNode.Q.value = 0.7
+
+  const hpfNode = ctx.createBiquadFilter()
+  hpfNode.type = 'highpass'
+  hpfNode.frequency.value = 20
+  hpfNode.Q.value = 0.7
+
+  // Signal chain: gain → EQ → HPF → LPF → analyser → output
   gainNode.connect(eqLow)
   eqLow.connect(eqMid)
   eqMid.connect(eqHigh)
-  eqHigh.connect(analyser)
+  eqHigh.connect(hpfNode)
+  hpfNode.connect(lpfNode)
+  lpfNode.connect(analyser)
   analyser.connect(outputGain)
   outputGain.connect(masterGain)
   outputGain.connect(recorderDest)
@@ -67,6 +83,8 @@ function createDeckNodes(ctx: AudioContext, masterGain: GainNode, recorderDest: 
     eqLow,
     eqMid,
     eqHigh,
+    lpfNode,
+    hpfNode,
     outputGain,
     startTime: 0,
     startOffset: 0,
@@ -513,6 +531,23 @@ export function useAudioEngine() {
     [setDeckA, setDeckB]
   )
 
+  // LP filter: value 0 = bypass (20 kHz), value 1 = fully filtered (~200 Hz)
+  // HP filter: value 0 = bypass (20 Hz),   value 1 = fully filtered (~8 kHz)
+  const setFilter = useCallback((deck: 'A' | 'B', type: 'lp' | 'hp', value: number) => {
+    const eng = engineRef.current
+    const deckNodes = deck === 'A' ? eng.deckA : eng.deckB
+    if (!deckNodes) return
+    if (type === 'lp') {
+      deckNodes.lpfNode.frequency.value = value < 0.02
+        ? 20000
+        : 20000 * Math.pow(200 / 20000, value)
+    } else {
+      deckNodes.hpfNode.frequency.value = value < 0.02
+        ? 20
+        : 20 * Math.pow(400, value)
+    }
+  }, [])
+
   const updateCrossfader = useCallback(
     (value: number) => {
       const eng = engineRef.current
@@ -641,6 +676,7 @@ export function useAudioEngine() {
     nudgeDeck,
     stopNudge,
     setEQ,
+    setFilter,
     updateCrossfader,
     updateMasterVolume,
     seekDeck,

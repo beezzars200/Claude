@@ -15,6 +15,7 @@ interface DeckProps {
     syncDeck: (deck: 'A' | 'B') => void
     nudgeDeck: (deck: 'A' | 'B', direction: 1 | -1) => void
     stopNudge: (deck: 'A' | 'B') => void
+    setFilter: (deck: 'A' | 'B', type: 'lp' | 'hp', value: number) => void
   }
 }
 
@@ -280,6 +281,91 @@ function VerticalTempoSlider({ value, onChange, accent, height = 160 }: {
   )
 }
 
+// ----- Filter Knob -----
+
+function FilterKnob({ type, value, onChange, accent }: {
+  type: 'lp' | 'hp'; value: number; onChange: (v: number) => void; accent: string
+}) {
+  const startY = useRef<number | null>(null)
+  const startVal = useRef(value)
+  const isActive = value > 0.02
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault()
+    startY.current = e.clientY
+    startVal.current = value
+    const onMove = (me: MouseEvent) => {
+      if (startY.current === null) return
+      onChange(Math.max(0, Math.min(1, startVal.current + (startY.current - me.clientY) / 100)))
+    }
+    const onUp = () => {
+      startY.current = null
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
+
+  // Compute display frequency
+  let freqDisplay = 'OFF'
+  if (isActive) {
+    if (type === 'lp') {
+      const f = 20000 * Math.pow(200 / 20000, value)
+      freqDisplay = f >= 1000 ? `${(f / 1000).toFixed(1)}k` : `${Math.round(f)}Hz`
+    } else {
+      const f = 20 * Math.pow(400, value)
+      freqDisplay = f >= 1000 ? `${(f / 1000).toFixed(1)}k` : `${Math.round(f)}Hz`
+    }
+  }
+
+  const rotation = -135 + value * 270
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+      <div style={{ fontSize: 8, color: '#6666aa', letterSpacing: '0.08em', fontWeight: 700 }}>
+        {type === 'lp' ? 'LP' : 'HP'}
+      </div>
+      <div
+        onMouseDown={onMouseDown}
+        onDoubleClick={() => onChange(0)}
+        title={`${type === 'lp' ? 'Low-pass' : 'High-pass'} filter — double-click to reset`}
+        style={{
+          width: 36, height: 36, borderRadius: '50%',
+          background: isActive
+            ? `radial-gradient(circle at 35% 35%, ${accent}44, #12121a)`
+            : 'radial-gradient(circle at 35% 35%, #1e1e2e, #0e0e18)',
+          border: `2px solid ${isActive ? accent : '#2a2a3a'}`,
+          position: 'relative', cursor: 'ns-resize',
+          boxShadow: isActive
+            ? `0 0 10px ${accent}44, inset 0 1px 0 rgba(255,255,255,0.06)`
+            : 'inset 0 1px 0 rgba(255,255,255,0.03)',
+          userSelect: 'none', flexShrink: 0,
+          transition: 'border-color 0.2s, box-shadow 0.2s'
+        }}
+      >
+        <div style={{
+          position: 'absolute', top: '50%', left: '50%',
+          width: 2, height: 11,
+          background: isActive ? accent : '#3a3a5a',
+          borderRadius: 1,
+          transformOrigin: '50% 100%',
+          transform: `translate(-50%, -100%) rotate(${rotation}deg)`,
+          transition: 'background 0.2s'
+        }} />
+      </div>
+      <div style={{
+        fontSize: 9, fontFamily: 'monospace', fontWeight: 700,
+        color: isActive ? accent : '#3a3a5a',
+        minWidth: 36, textAlign: 'center',
+        transition: 'color 0.2s'
+      }}>
+        {freqDisplay}
+      </div>
+    </div>
+  )
+}
+
 // ----- Nudge Button -----
 
 function NudgeBtn({ deck, direction, audioEngine, disabled }: {
@@ -320,6 +406,8 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
   const bg = BG[deck]
 
   const [isDragOver, setIsDragOver] = useState(false)
+  const [lpfValue, setLpfValue] = useState(0)
+  const [hpfValue, setHpfValue] = useState(0)
 
   const currentTimeRef = useRef(deckState.currentTime)
   const durationRef = useRef(deckState.duration)
@@ -555,6 +643,27 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
             -{formatTime(remaining)}
           </div>
         </div>
+      </div>
+
+      {/* ── ROW 2.5: Filters ── */}
+      <div style={{
+        display: 'flex', flexDirection: 'row', alignItems: 'center',
+        gap: 10, paddingTop: 2,
+        justifyContent: deck === 'A' ? 'flex-start' : 'flex-end'
+      }}>
+        <div style={{ fontSize: 9, color: '#444466', letterSpacing: '0.1em', fontWeight: 700 }}>FILTER</div>
+        <FilterKnob
+          type="lp"
+          value={lpfValue}
+          onChange={v => { setLpfValue(v); audioEngine.setFilter(deck, 'lp', v) }}
+          accent={accent}
+        />
+        <FilterKnob
+          type="hp"
+          value={hpfValue}
+          onChange={v => { setHpfValue(v); audioEngine.setFilter(deck, 'hp', v) }}
+          accent={accent}
+        />
       </div>
 
       {/* ── ROW 3: Transport + Nudge — flat horizontal bar ── */}

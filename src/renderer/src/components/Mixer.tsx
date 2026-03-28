@@ -399,26 +399,30 @@ export default function Mixer({
   }, [])
 
   useEffect(() => {
-    const animate = () => {
-      // Deck A (left channel)
-      const dataA = getAnalyserData('A')
-      if (dataA && dataA.length > 0 && isPlayingARef.current) {
-        let peakA = 0
-        for (let i = 0; i < dataA.length; i++) if (dataA[i] > peakA) peakA = dataA[i]
-        levelARef.current = peakA / 255
-      } else {
-        levelARef.current = Math.max(0, levelARef.current - 0.04)
+    const rmsLevel = (data: Uint8Array): number => {
+      let sumSq = 0
+      for (let i = 0; i < data.length; i++) {
+        const v = data[i] / 255
+        sumSq += v * v
       }
+      // Scale so typical music RMS (~0.15-0.25) maps to 60-90% of meter
+      return Math.min(1, Math.sqrt(sumSq / data.length) * 5.5)
+    }
 
-      // Deck B (right channel)
+    const animate = () => {
+      // Deck A — smoothed: fast attack (~50ms), slow release (~300ms) at 60fps
+      const dataA = getAnalyserData('A')
+      const targetA = (dataA && dataA.length > 0 && isPlayingARef.current) ? rmsLevel(dataA) : 0
+      levelARef.current = targetA > levelARef.current
+        ? levelARef.current + (targetA - levelARef.current) * 0.28
+        : levelARef.current + (targetA - levelARef.current) * 0.054
+
+      // Deck B
       const dataB = getAnalyserData('B')
-      if (dataB && dataB.length > 0 && isPlayingBRef.current) {
-        let peakB = 0
-        for (let i = 0; i < dataB.length; i++) if (dataB[i] > peakB) peakB = dataB[i]
-        levelBRef.current = peakB / 255
-      } else {
-        levelBRef.current = Math.max(0, levelBRef.current - 0.04)
-      }
+      const targetB = (dataB && dataB.length > 0 && isPlayingBRef.current) ? rmsLevel(dataB) : 0
+      levelBRef.current = targetB > levelBRef.current
+        ? levelBRef.current + (targetB - levelBRef.current) * 0.28
+        : levelBRef.current + (targetB - levelBRef.current) * 0.054
 
       const isA = isPlayingARef.current
       const isB = isPlayingBRef.current
