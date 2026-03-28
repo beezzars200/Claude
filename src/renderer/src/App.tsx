@@ -71,11 +71,11 @@ export default function App() {
           overflow: 'hidden',
           padding: '8px 8px 4px 8px',
           gap: 8,
-          alignItems: 'flex-start'
+          alignItems: 'stretch'
         }}
       >
         {/* Deck A */}
-        <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+        <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <Deck deck="A" audioEngine={audioEngine} />
         </div>
 
@@ -95,7 +95,7 @@ export default function App() {
         </div>
 
         {/* Deck B */}
-        <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+        <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <Deck deck="B" audioEngine={audioEngine} />
         </div>
       </div>

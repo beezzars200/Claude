@@ -419,12 +419,12 @@ export function useAudioEngine() {
     setter({ volume })
   }, [setDeckA, setDeckB])
 
-  // Pitch: value 0–1 where 0.5 = normal speed, 0 = -10%, 1 = +10%
+  // Pitch: value 0–1 where 0.5 = normal speed, 0 = -6%, 1 = +6%
   const setPitch = useCallback((deck: 'A' | 'B', value: number) => {
     const eng = engineRef.current
     const deckNodes = deck === 'A' ? eng.deckA : eng.deckB
     if (!deckNodes) return
-    const rate = 1.0 + (value - 0.5) * 0.2
+    const rate = 1.0 + (value - 0.5) * 0.12
     deckNodes.playbackRate = rate
     if (deckNodes.source) deckNodes.source.playbackRate.value = rate
     const setter = deck === 'A' ? setDeckA : setDeckB
