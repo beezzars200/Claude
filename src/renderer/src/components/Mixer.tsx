@@ -458,20 +458,7 @@ export default function Mixer({
         height: '100%'
       }}
     >
-      {/* Row 1: Crossfader */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: '#8888aa' }}>
-          <span style={{ color: '#00ff88', fontWeight: 700 }}>A</span>
-          <span style={{ letterSpacing: '0.06em' }}>CROSSFADER</span>
-          <span style={{ color: '#0088ff', fontWeight: 700 }}>B</span>
-        </div>
-        <HorizontalFader value={crossfader} onChange={updateCrossfader} />
-        <div style={{ textAlign: 'center', fontSize: 10, color: '#6666aa' }}>
-          {crossPercent < 50 ? `A ${100 - crossPercent * 2}%` : crossPercent > 50 ? `B ${(crossPercent - 50) * 2}%` : 'CENTER'}
-        </div>
-      </div>
-
-      {/* Row 2: EQ+VOL A | VertWave A | Master VU + Knob | VertWave B | EQ+VOL B */}
+      {/* Row 1: EQ+VOL A | VertWave A | Master VU + Knob | VertWave B | EQ+VOL B */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
         <EQStrip
           deck="A"
@@ -529,6 +516,19 @@ export default function Mixer({
           volValue={deckBVolume}
           onVolChange={(v) => setDeckVolume('B', v)}
         />
+      </div>
+
+      {/* Row 2: Crossfader — below EQ */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: '#8888aa' }}>
+          <span style={{ color: '#00ff88', fontWeight: 700 }}>A</span>
+          <span style={{ letterSpacing: '0.06em' }}>CROSSFADER</span>
+          <span style={{ color: '#0088ff', fontWeight: 700 }}>B</span>
+        </div>
+        <HorizontalFader value={crossfader} onChange={updateCrossfader} />
+        <div style={{ textAlign: 'center', fontSize: 10, color: '#6666aa' }}>
+          {crossPercent < 50 ? `A ${100 - crossPercent * 2}%` : crossPercent > 50 ? `B ${(crossPercent - 50) * 2}%` : 'CENTER'}
+        </div>
       </div>
     </div>
   )
