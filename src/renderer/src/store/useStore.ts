@@ -10,6 +10,14 @@ export interface Track {
   title?: string        // ADD THIS
 }
 
+export interface HistoryEntry {
+  filePath: string
+  name: string
+  artist?: string
+  deck: 'A' | 'B'
+  loadedAt: number
+}
+
 export interface DeckState {
   track: Track | null
   albumArt: string | null
@@ -80,6 +88,8 @@ export interface AppStore {
   setBroadcast: (updates: Partial<BroadcastState>) => void
   setRecorder: (updates: Partial<RecorderState>) => void
   setActiveTab: (tab: 'library' | 'broadcast' | 'recorder') => void
+  sessionHistory: HistoryEntry[]
+  addToHistory: (entry: HistoryEntry) => void
 }
 
 const defaultDeck: DeckState = {
@@ -156,5 +166,10 @@ export const useStore = create<AppStore>((set) => ({
   setRecorder: (updates) =>
     set((state) => ({ recorder: { ...state.recorder, ...updates } })),
 
-  setActiveTab: (tab) => set({ activeTab: tab })
+  setActiveTab: (tab) => set({ activeTab: tab }),
+
+  sessionHistory: [],
+  addToHistory: (entry) => set((state) => ({
+    sessionHistory: [entry, ...state.sessionHistory].slice(0, 200)
+  }))
 }))

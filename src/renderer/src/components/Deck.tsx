@@ -16,6 +16,9 @@ interface DeckProps {
     nudgeDeck: (deck: 'A' | 'B', direction: 1 | -1) => void
     stopNudge: (deck: 'A' | 'B') => void
     setFilter: (deck: 'A' | 'B', type: 'lp' | 'hp', value: number) => void
+    setEcho: (deck: 'A' | 'B', params: { time?: number; feedback?: number; wet?: number }) => void
+    setReverb: (deck: 'A' | 'B', params: { size?: number; wet?: number }) => void
+    setFlanger: (deck: 'A' | 'B', params: { rate?: number; depth?: number; wet?: number }) => void
   }
 }
 
@@ -281,6 +284,86 @@ function VerticalTempoSlider({ value, onChange, accent, height = 160 }: {
   )
 }
 
+// ----- Mini Knob (for effects) -----
+
+function MiniKnob({ label, value, onChange, accent, format }: {
+  label: string; value: number; onChange: (v: number) => void; accent: string; format?: (v: number) => string
+}) {
+  const startY = useRef<number | null>(null)
+  const startVal = useRef(value)
+  const rotation = -135 + value * 270
+  const display = format ? format(value) : `${Math.round(value * 100)}%`
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault()
+    startY.current = e.clientY; startVal.current = value
+    const onMove = (me: MouseEvent) => {
+      if (startY.current === null) return
+      onChange(Math.max(0, Math.min(1, startVal.current + (startY.current - me.clientY) / 80)))
+    }
+    const onUp = () => { startY.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+      <div
+        onMouseDown={onMouseDown}
+        onDoubleClick={() => onChange(0.5)}
+        style={{
+          width: 28, height: 28, borderRadius: '50%',
+          background: 'radial-gradient(circle at 35% 35%, #222232, #0e0e18)',
+          border: `1.5px solid ${accent}66`,
+          position: 'relative', cursor: 'ns-resize', userSelect: 'none', flexShrink: 0
+        }}
+      >
+        <div style={{
+          position: 'absolute', top: '50%', left: '50%',
+          width: 1.5, height: 9, background: accent,
+          borderRadius: 1, transformOrigin: '50% 100%',
+          transform: `translate(-50%, -100%) rotate(${rotation}deg)`
+        }} />
+      </div>
+      <div style={{ fontSize: 8, color: accent + 'cc', fontFamily: 'monospace', textAlign: 'center', minWidth: 28 }}>{display}</div>
+      <div style={{ fontSize: 7, color: '#555577', letterSpacing: '0.06em', textAlign: 'center' }}>{label}</div>
+    </div>
+  )
+}
+
+// ----- Effect Card -----
+
+function EffectCard({ label, enabled, onToggle, accent, children }: {
+  label: string; enabled: boolean; onToggle: () => void; accent: string; children: React.ReactNode
+}) {
+  return (
+    <div style={{
+      flex: 1, background: enabled ? `${accent}0d` : '#0c0c18',
+      border: `1px solid ${enabled ? accent + '55' : '#222232'}`,
+      borderRadius: 8, padding: '6px 8px',
+      display: 'flex', flexDirection: 'column', gap: 5,
+      transition: 'border-color 0.15s, background 0.15s'
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+        <div
+          onClick={onToggle}
+          style={{
+            width: 8, height: 8, borderRadius: '50%', cursor: 'pointer', flexShrink: 0,
+            background: enabled ? accent : '#2a2a3a',
+            boxShadow: enabled ? `0 0 7px ${accent}` : 'none',
+            transition: 'all 0.15s'
+          }}
+        />
+        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', color: enabled ? accent : '#4a4a6a', transition: 'color 0.15s' }}>
+          {label}
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 4, justifyContent: 'space-around' }}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
 // ----- Filter Knob -----
 
 function FilterKnob({ type, value, onChange, accent }: {
@@ -408,6 +491,9 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
   const [isDragOver, setIsDragOver] = useState(false)
   const [lpfValue, setLpfValue] = useState(0)
   const [hpfValue, setHpfValue] = useState(0)
+  const [echo, setEchoState] = useState({ enabled: false, time: 0.33, feedback: 0.47, wet: 0 })
+  const [reverb, setReverbState] = useState({ enabled: false, size: 0.4, wet: 0 })
+  const [flanger, setFlangerState] = useState({ enabled: false, rate: 0.28, depth: 0.5, wet: 0 })
 
   const currentTimeRef = useRef(deckState.currentTime)
   const durationRef = useRef(deckState.duration)
@@ -666,7 +752,61 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
         />
       </div>
 
-      {/* ── ROW 3: Transport + Nudge — flat horizontal bar ── */}
+      {/* ── ROW 3: Effects ── */}
+      <div style={{ display: 'flex', gap: 6 }}>
+        <EffectCard
+          label="ECHO" enabled={echo.enabled} accent={accent}
+          onToggle={() => {
+            const next = !echo.enabled
+            const wet = next ? 0.45 : 0
+            setEchoState(s => ({ ...s, enabled: next, wet }))
+            audioEngine.setEcho(deck, { wet })
+          }}
+        >
+          <MiniKnob label="TIME" value={echo.time} accent={accent}
+            format={v => `${(0.05 + v * 0.75).toFixed(2)}s`}
+            onChange={v => { setEchoState(s => ({ ...s, time: v })); audioEngine.setEcho(deck, { time: v }) }} />
+          <MiniKnob label="FDBK" value={echo.feedback} accent={accent}
+            onChange={v => { setEchoState(s => ({ ...s, feedback: v })); audioEngine.setEcho(deck, { feedback: v }) }} />
+          <MiniKnob label="WET" value={echo.wet} accent={accent}
+            onChange={v => { setEchoState(s => ({ ...s, wet: v, enabled: v > 0.01 })); audioEngine.setEcho(deck, { wet: v }) }} />
+        </EffectCard>
+
+        <EffectCard
+          label="REVERB" enabled={reverb.enabled} accent={accent}
+          onToggle={() => {
+            const next = !reverb.enabled
+            const wet = next ? 0.4 : 0
+            setReverbState(s => ({ ...s, enabled: next, wet }))
+            audioEngine.setReverb(deck, { wet })
+          }}
+        >
+          <MiniKnob label="SIZE" value={reverb.size} accent={accent}
+            onChange={v => { setReverbState(s => ({ ...s, size: v })); audioEngine.setReverb(deck, { size: v }) }} />
+          <MiniKnob label="WET" value={reverb.wet} accent={accent}
+            onChange={v => { setReverbState(s => ({ ...s, wet: v, enabled: v > 0.01 })); audioEngine.setReverb(deck, { wet: v }) }} />
+        </EffectCard>
+
+        <EffectCard
+          label="FLANGER" enabled={flanger.enabled} accent={accent}
+          onToggle={() => {
+            const next = !flanger.enabled
+            const wet = next ? 0.5 : 0
+            setFlangerState(s => ({ ...s, enabled: next, wet }))
+            audioEngine.setFlanger(deck, { wet })
+          }}
+        >
+          <MiniKnob label="RATE" value={flanger.rate} accent={accent}
+            format={v => `${(0.05 + v * 7.95).toFixed(1)}Hz`}
+            onChange={v => { setFlangerState(s => ({ ...s, rate: v })); audioEngine.setFlanger(deck, { rate: v }) }} />
+          <MiniKnob label="DEPTH" value={flanger.depth} accent={accent}
+            onChange={v => { setFlangerState(s => ({ ...s, depth: v })); audioEngine.setFlanger(deck, { depth: v }) }} />
+          <MiniKnob label="WET" value={flanger.wet} accent={accent}
+            onChange={v => { setFlangerState(s => ({ ...s, wet: v, enabled: v > 0.01 })); audioEngine.setFlanger(deck, { wet: v }) }} />
+        </EffectCard>
+      </div>
+
+      {/* ── ROW 5: Transport + Nudge ── */}
       <div style={{
         display: 'flex',
         flexDirection: 'row',

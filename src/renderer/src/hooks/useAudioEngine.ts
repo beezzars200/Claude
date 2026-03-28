@@ -2,6 +2,18 @@ import { useRef, useEffect, useCallback } from 'react'
 import { useStore, Track } from '../store/useStore'
 import { analyze } from 'web-audio-beat-detector'
 
+function createReverbIR(ctx: AudioContext, duration: number, decay: number): AudioBuffer {
+  const length = Math.floor(ctx.sampleRate * duration)
+  const ir = ctx.createBuffer(2, length, ctx.sampleRate)
+  for (let c = 0; c < 2; c++) {
+    const data = ir.getChannelData(c)
+    for (let i = 0; i < length; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay)
+    }
+  }
+  return ir
+}
+
 interface DeckNodes {
   source: AudioBufferSourceNode | null
   buffer: AudioBuffer | null
@@ -11,6 +23,16 @@ interface DeckNodes {
   eqHigh: BiquadFilterNode
   lpfNode: BiquadFilterNode
   hpfNode: BiquadFilterNode
+  // Effects
+  echoDelay: DelayNode
+  echoFeedback: GainNode
+  echoWet: GainNode
+  reverbConvolver: ConvolverNode
+  reverbWet: GainNode
+  flangerDelay: DelayNode
+  flangerLFO: OscillatorNode
+  flangerLFOGain: GainNode
+  flangerWet: GainNode
   outputGain: GainNode
   startTime: number
   startOffset: number
@@ -65,13 +87,53 @@ function createDeckNodes(ctx: AudioContext, masterGain: GainNode, recorderDest: 
   hpfNode.frequency.value = 20
   hpfNode.Q.value = 0.7
 
-  // Signal chain: gain → EQ → HPF → LPF → analyser → output
+  // Echo effect (parallel send/return to analyser)
+  const echoDelay = ctx.createDelay(2.0)
+  echoDelay.delayTime.value = 0.3
+  const echoFeedback = ctx.createGain()
+  echoFeedback.gain.value = 0.4
+  const echoWet = ctx.createGain()
+  echoWet.gain.value = 0  // off by default
+  echoDelay.connect(echoFeedback)
+  echoFeedback.connect(echoDelay)
+  echoDelay.connect(echoWet)
+  echoWet.connect(analyser)
+
+  // Reverb effect
+  const reverbConvolver = ctx.createConvolver()
+  reverbConvolver.buffer = createReverbIR(ctx, 2, 3)
+  const reverbWet = ctx.createGain()
+  reverbWet.gain.value = 0  // off by default
+  reverbConvolver.connect(reverbWet)
+  reverbWet.connect(analyser)
+
+  // Flanger effect
+  const flangerDelay = ctx.createDelay(0.02)
+  flangerDelay.delayTime.value = 0.003
+  const flangerLFO = ctx.createOscillator()
+  flangerLFO.type = 'sine'
+  flangerLFO.frequency.value = 0.3
+  const flangerLFOGain = ctx.createGain()
+  flangerLFOGain.gain.value = 0.002
+  flangerLFO.connect(flangerLFOGain)
+  flangerLFOGain.connect(flangerDelay.delayTime)
+  flangerLFO.start()
+  const flangerWet = ctx.createGain()
+  flangerWet.gain.value = 0  // off by default
+  flangerDelay.connect(flangerWet)
+  flangerWet.connect(analyser)
+
+  // Signal chain: gain → EQ → HPF → LPF → analyser (dry) → output
+  // Effects tap from lpfNode and return to analyser (parallel)
   gainNode.connect(eqLow)
   eqLow.connect(eqMid)
   eqMid.connect(eqHigh)
   eqHigh.connect(hpfNode)
   hpfNode.connect(lpfNode)
-  lpfNode.connect(analyser)
+  lpfNode.connect(analyser)         // dry path
+  lpfNode.connect(echoDelay)        // echo send
+  lpfNode.connect(reverbConvolver)  // reverb send
+  lpfNode.connect(flangerDelay)     // flanger send
   analyser.connect(outputGain)
   outputGain.connect(masterGain)
   outputGain.connect(recorderDest)
@@ -85,6 +147,15 @@ function createDeckNodes(ctx: AudioContext, masterGain: GainNode, recorderDest: 
     eqHigh,
     lpfNode,
     hpfNode,
+    echoDelay,
+    echoFeedback,
+    echoWet,
+    reverbConvolver,
+    reverbWet,
+    flangerDelay,
+    flangerLFO,
+    flangerLFOGain,
+    flangerWet,
     outputGain,
     startTime: 0,
     startOffset: 0,
@@ -220,6 +291,9 @@ export function useAudioEngine() {
         } catch { /* ignore — metadata is optional */ }
 
         const displayName = title ? (artist ? `${artist} - ${title}` : title) : trackName
+
+        // Record in session history
+        useStore.getState().addToHistory({ filePath: fileUrl, name: displayName, artist, deck, loadedAt: Date.now() })
 
         // Update the track on the deck with proper name/metadata
         const currentDeck = deck === 'A' ? storeRef.current.deckA : storeRef.current.deckB
@@ -548,6 +622,49 @@ export function useAudioEngine() {
     }
   }, [])
 
+  // Echo: time 0–1 → 0.05–0.8s, feedback 0–1 → 0–0.85, wet 0–1
+  const setEcho = useCallback((deck: 'A' | 'B', params: { time?: number; feedback?: number; wet?: number }) => {
+    const deckNodes = (deck === 'A' ? engineRef.current.deckA : engineRef.current.deckB)
+    if (!deckNodes) return
+    if (params.time !== undefined) deckNodes.echoDelay.delayTime.value = 0.05 + params.time * 0.75
+    if (params.feedback !== undefined) deckNodes.echoFeedback.gain.value = params.feedback * 0.85
+    if (params.wet !== undefined) deckNodes.echoWet.gain.value = params.wet
+  }, [])
+
+  // Reverb: size 0–1 → short→long room, wet 0–1
+  const setReverb = useCallback((deck: 'A' | 'B', params: { size?: number; wet?: number }) => {
+    const eng = engineRef.current
+    const deckNodes = deck === 'A' ? eng.deckA : eng.deckB
+    if (!deckNodes || !eng.context) return
+    if (params.size !== undefined) {
+      deckNodes.reverbConvolver.buffer = createReverbIR(eng.context, 0.5 + params.size * 4, 1 + params.size * 5)
+    }
+    if (params.wet !== undefined) deckNodes.reverbWet.gain.value = params.wet
+  }, [])
+
+  // Flanger: rate 0–1 → 0.05–8 Hz, depth 0–1 → modulation depth, wet 0–1
+  const setFlanger = useCallback((deck: 'A' | 'B', params: { rate?: number; depth?: number; wet?: number }) => {
+    const deckNodes = (deck === 'A' ? engineRef.current.deckA : engineRef.current.deckB)
+    if (!deckNodes) return
+    if (params.rate !== undefined) deckNodes.flangerLFO.frequency.value = 0.05 + params.rate * 7.95
+    if (params.depth !== undefined) deckNodes.flangerLFOGain.gain.value = params.depth * 0.004
+    if (params.wet !== undefined) deckNodes.flangerWet.gain.value = params.wet
+  }, [])
+
+  // Analyze a file's BPM (used by Library for background caching)
+  const analyzeTrackBPM = useCallback(async (filePath: string): Promise<number> => {
+    try {
+      if (!engineRef.current.context) initAudio()
+      const ctx = engineRef.current.context
+      if (!ctx) return 0
+      const arrayBuffer = await window.api.readAudioFile(filePath)
+      const audioBuffer = await ctx.decodeAudioData(arrayBuffer)
+      return Math.round(await analyze(audioBuffer))
+    } catch {
+      return 0
+    }
+  }, [initAudio])
+
   const updateCrossfader = useCallback(
     (value: number) => {
       const eng = engineRef.current
@@ -677,6 +794,10 @@ export function useAudioEngine() {
     stopNudge,
     setEQ,
     setFilter,
+    setEcho,
+    setReverb,
+    setFlanger,
+    analyzeTrackBPM,
     updateCrossfader,
     updateMasterVolume,
     seekDeck,
