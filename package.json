@@ -23,6 +23,7 @@
     "@electron-toolkit/preload": "^3.0.0",
     "@electron-toolkit/utils": "^3.0.0",
     "music-metadata": "^7.14.0",
+    "web-audio-beat-detector": "^8.2.36",
     "zustand": "^4.5.2"
   },
   "devDependencies": {

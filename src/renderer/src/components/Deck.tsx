@@ -449,7 +449,9 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
 
   // BPM adjusts with tempo: ±6% range, 0.12 coefficient matches audio engine
   const playbackRate = 1.0 + (deckState.pitch - 0.5) * 0.12
-  const displayBPM = deckState.bpm > 0 ? Math.round(deckState.bpm * playbackRate) : 0
+  const rawBPM = deckState.bpm > 0 ? deckState.bpm * playbackRate : 0
+  // Show 1 decimal place for precise mixing (e.g. 128.3 BPM)
+  const displayBPM = rawBPM > 0 ? rawBPM.toFixed(1) : null
 
   const remaining = Math.max(0, deckState.duration - deckState.currentTime)
 
@@ -495,7 +497,7 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
               <div style={{ background: accent, color: '#0a0a10', borderRadius: 4, padding: '2px 8px', fontSize: 11, fontWeight: 800, letterSpacing: '0.1em' }}>
                 DECK A
               </div>
-              {displayBPM > 0 && (
+              {displayBPM && (
                 <div style={{ fontSize: 10, color: '#8888aa' }}>
                   <span style={{ color: accent, fontWeight: 700 }}>{displayBPM}</span>
                   <span style={{ marginLeft: 2 }}>BPM</span>
@@ -561,7 +563,7 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
               <div style={{ background: accent, color: '#0a0a10', borderRadius: 4, padding: '2px 8px', fontSize: 11, fontWeight: 800, letterSpacing: '0.1em' }}>
                 DECK B
               </div>
-              {displayBPM > 0 && (
+              {displayBPM && (
                 <div style={{ fontSize: 10, color: '#8888aa' }}>
                   <span style={{ color: accent, fontWeight: 700 }}>{displayBPM}</span>
                   <span style={{ marginLeft: 2 }}>BPM</span>

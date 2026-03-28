@@ -1,5 +1,6 @@
 import { useRef, useEffect, useCallback } from 'react'
 import { useStore, Track } from '../store/useStore'
+import { analyze } from 'web-audio-beat-detector'
 
 interface DeckNodes {
   source: AudioBufferSourceNode | null
@@ -227,7 +228,14 @@ export function useAudioEngine() {
         deckNodes.startOffset = 0
         deckNodes.isPlaying = false
 
-        const bpm = estimateBPM(audioBuffer)
+        // Accurate BPM detection using onset-strength autocorrelation
+        let bpm = 120
+        try {
+          bpm = await analyze(audioBuffer)
+        } catch {
+          bpm = fallbackBPM(audioBuffer)
+        }
+
         const { waveform, waveformLF, waveformMF, waveformHF } = computeWaveformData(audioBuffer)
 
         setter({
@@ -301,36 +309,51 @@ export function useAudioEngine() {
     return { waveform, waveformLF, waveformMF, waveformHF }
   }
 
-  // Estimate BPM from audio buffer (simplified)
-  function estimateBPM(buffer: AudioBuffer): number {
-    // Simple energy-based BPM estimation
-    const channelData = buffer.getChannelData(0)
+  // Fallback BPM detector using onset-strength autocorrelation (used if the library throws)
+  function fallbackBPM(buffer: AudioBuffer): number {
     const sampleRate = buffer.sampleRate
-    const windowSize = Math.floor(sampleRate * 0.2) // 200ms windows
-    const energies: number[] = []
+    const data = buffer.getChannelData(0)
+    const analyzeLen = Math.min(data.length, Math.floor(sampleRate * 60))
 
-    for (let i = 0; i < channelData.length - windowSize; i += windowSize) {
-      let energy = 0
-      for (let j = 0; j < windowSize; j++) {
-        energy += channelData[i + j] * channelData[i + j]
-      }
-      energies.push(energy / windowSize)
+    // RMS energy in ~23ms frames, 5ms hops
+    const hop = Math.floor(sampleRate * 0.005)
+    const frame = Math.floor(sampleRate * 0.023)
+    const numFrames = Math.floor((analyzeLen - frame) / hop)
+    if (numFrames < 100) return 120
+
+    const energy = new Float32Array(numFrames)
+    for (let i = 0; i < numFrames; i++) {
+      const s = i * hop
+      let e = 0
+      for (let j = 0; j < frame; j++) e += data[s + j] * data[s + j]
+      energy[i] = Math.sqrt(e / frame)
     }
 
-    // Count beats (energy spikes)
-    const avgEnergy = energies.reduce((a, b) => a + b, 0) / energies.length
-    let beats = 0
-    for (const e of energies) {
-      if (e > avgEnergy * 1.5) beats++
+    // Half-wave rectified first derivative = onset strength
+    const onset = new Float32Array(numFrames)
+    for (let i = 1; i < numFrames; i++) {
+      const d = energy[i] - energy[i - 1]
+      onset[i] = d > 0 ? d : 0
     }
 
-    const durationSeconds = buffer.duration
-    const bpm = Math.round((beats / durationSeconds) * 60)
+    // Autocorrelation across BPM range 60–200
+    const frameRate = sampleRate / hop
+    const minLag = Math.round(frameRate * 60 / 200)
+    const maxLag = Math.round(frameRate * 60 / 60)
+    const N = Math.min(numFrames, 6000)
 
-    // Clamp to reasonable range
-    if (bpm < 60) return 120
-    if (bpm > 200) return 128
-    return bpm
+    let bestLag = minLag, bestVal = 0
+    for (let lag = minLag; lag <= maxLag; lag++) {
+      let sum = 0
+      for (let i = 0; i < N - lag; i++) sum += onset[i] * onset[i + lag]
+      const val = sum / (N - lag)
+      if (val > bestVal) { bestVal = val; bestLag = lag }
+    }
+
+    let bpm = (frameRate * 60) / bestLag
+    while (bpm < 70) bpm *= 2
+    while (bpm > 175) bpm /= 2
+    return Math.round(bpm * 10) / 10
   }
 
   const playDeck = useCallback(
