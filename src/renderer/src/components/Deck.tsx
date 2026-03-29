@@ -19,6 +19,14 @@ interface DeckProps {
     setEcho: (deck: 'A' | 'B', params: { time?: number; feedback?: number; wet?: number }) => void
     setReverb: (deck: 'A' | 'B', params: { size?: number; wet?: number }) => void
     setFlanger: (deck: 'A' | 'B', params: { rate?: number; depth?: number; wet?: number }) => void
+    setLoopIn: (deck: 'A' | 'B') => void
+    setLoopOut: (deck: 'A' | 'B') => void
+    toggleLoop: (deck: 'A' | 'B') => void
+    exitLoop: (deck: 'A' | 'B') => void
+    setBeatLoop: (deck: 'A' | 'B', beats: number) => void
+    loopHalve: (deck: 'A' | 'B') => void
+    loopDouble: (deck: 'A' | 'B') => void
+    reloop: (deck: 'A' | 'B') => void
   }
 }
 
@@ -494,6 +502,7 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
   const [echo, setEchoState] = useState({ enabled: false, time: 0.33, feedback: 0.47, wet: 0 })
   const [reverb, setReverbState] = useState({ enabled: false, size: 0.4, wet: 0 })
   const [flanger, setFlangerState] = useState({ enabled: false, rate: 0.28, depth: 0.5, wet: 0 })
+  const [activeBeatLoop, setActiveBeatLoop] = useState<number | null>(null)
 
   const currentTimeRef = useRef(deckState.currentTime)
   const durationRef = useRef(deckState.duration)
@@ -541,6 +550,19 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
         drawBar(i, Math.max(1, barWidth - 0.5), i * barWidth, i < playedBars ? 0.9 : 0.22)
       }
 
+      // Loop region overlay
+      const loopStart = deckState.loopStart
+      const loopEnd = deckState.loopEnd
+      if (loopEnd > loopStart && durationRef.current > 0) {
+        const lx1 = (loopStart / durationRef.current) * W
+        const lx2 = (loopEnd / durationRef.current) * W
+        ctx.fillStyle = deckState.loopActive ? accent + '22' : accent + '0f'
+        ctx.fillRect(lx1, 0, lx2 - lx1, H)
+        ctx.fillStyle = deckState.loopActive ? accent + 'cc' : accent + '55'
+        ctx.fillRect(lx1, 0, 2, H)
+        ctx.fillRect(lx2 - 2, 0, 2, H)
+      }
+
       const playheadX = Math.floor(progress * W)
       ctx.fillStyle = '#ffffff'
       ctx.fillRect(playheadX - 1, 0, 2, H)
@@ -558,7 +580,7 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
       ctx.lineTo(W, H / 2)
       ctx.stroke()
     }
-  }, [deckState.waveform, deckState.waveformLF, deckState.waveformMF, deckState.waveformHF, accent, bg])
+  }, [deckState.waveform, deckState.waveformLF, deckState.waveformMF, deckState.waveformHF, deckState.loopActive, deckState.loopStart, deckState.loopEnd, accent, bg])
 
   const drawTopWaveform = useCallback(() => {
     const canvas = topCanvasRef.current
@@ -805,6 +827,171 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
             onChange={v => { setFlangerState(s => ({ ...s, wet: v, enabled: v > 0.01 })); audioEngine.setFlanger(deck, { wet: v }) }} />
         </EffectCard>
       </div>
+
+      {/* ── ROW 4: Loop ── */}
+      {(() => {
+        // Beat loop sizes: [label, beats] — beats = number of quarter-note beats
+        const beatLoops: [string, number][] = [
+          ['1/8', 0.5], ['1/4', 1], ['1/2', 2], ['1', 4],
+          ['2', 8], ['4', 16], ['8', 32], ['16', 64]
+        ]
+        const hasLoop = deckState.loopEnd > deckState.loopStart
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {/* Beat loop buttons */}
+            <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+              <div style={{ fontSize: 8, color: '#444466', letterSpacing: '0.1em', fontWeight: 700, flexShrink: 0, width: 28 }}>LOOP</div>
+              {beatLoops.map(([label, beats]) => {
+                const isActive = deckState.loopActive && activeBeatLoop === beats
+                return (
+                  <button
+                    key={label}
+                    onClick={() => {
+                      if (!deckState.isLoaded) return
+                      if (isActive) {
+                        audioEngine.exitLoop(deck)
+                        setActiveBeatLoop(null)
+                      } else {
+                        audioEngine.setBeatLoop(deck, beats)
+                        setActiveBeatLoop(beats)
+                      }
+                    }}
+                    disabled={!deckState.isLoaded}
+                    style={{
+                      flex: 1, height: 26, borderRadius: 5,
+                      border: `1px solid ${isActive ? accent : accent + '33'}`,
+                      background: isActive
+                        ? `linear-gradient(145deg, ${accent}cc, ${accent}77)`
+                        : 'linear-gradient(145deg, #1a1a28, #10101a)',
+                      color: isActive ? '#080810' : accent + 'bb',
+                      fontSize: 10, fontWeight: 700,
+                      cursor: deckState.isLoaded ? 'pointer' : 'not-allowed',
+                      opacity: deckState.isLoaded ? 1 : 0.3,
+                      boxShadow: isActive ? `0 0 8px ${accent}44` : 'none',
+                      transition: 'all 0.1s'
+                    }}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* IN / OUT / LOOP / RELOOP / ½ / ×2 */}
+            <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+              <div style={{ width: 28, flexShrink: 0 }} />
+              {/* IN */}
+              <button
+                onClick={() => audioEngine.setLoopIn(deck)}
+                disabled={!deckState.isLoaded}
+                title="Set loop in point"
+                style={{
+                  flex: 1, height: 24, borderRadius: 5,
+                  border: `1px solid #886633`,
+                  background: 'linear-gradient(145deg, #1e1a10, #12100a)',
+                  color: '#cc9944', fontSize: 9, fontWeight: 700,
+                  cursor: deckState.isLoaded ? 'pointer' : 'not-allowed',
+                  opacity: deckState.isLoaded ? 1 : 0.3
+                }}
+              >IN</button>
+
+              {/* OUT */}
+              <button
+                onClick={() => audioEngine.setLoopOut(deck)}
+                disabled={!deckState.isLoaded}
+                title="Set loop out point"
+                style={{
+                  flex: 1, height: 24, borderRadius: 5,
+                  border: `1px solid #886633`,
+                  background: 'linear-gradient(145deg, #1e1a10, #12100a)',
+                  color: '#cc9944', fontSize: 9, fontWeight: 700,
+                  cursor: deckState.isLoaded ? 'pointer' : 'not-allowed',
+                  opacity: deckState.isLoaded ? 1 : 0.3
+                }}
+              >OUT</button>
+
+              {/* LOOP toggle */}
+              <button
+                onClick={() => {
+                  if (!hasLoop) return
+                  audioEngine.toggleLoop(deck)
+                  if (deckState.loopActive) setActiveBeatLoop(null)
+                }}
+                disabled={!deckState.isLoaded || !hasLoop}
+                title={deckState.loopActive ? 'Exit loop' : 'Enable loop'}
+                style={{
+                  flex: 1.3, height: 24, borderRadius: 5,
+                  border: `1px solid ${deckState.loopActive ? accent : accent + '44'}`,
+                  background: deckState.loopActive
+                    ? `linear-gradient(145deg, ${accent}cc, ${accent}77)`
+                    : 'linear-gradient(145deg, #1a1a28, #10101a)',
+                  color: deckState.loopActive ? '#080810' : accent + '99',
+                  fontSize: 9, fontWeight: 700,
+                  cursor: (deckState.isLoaded && hasLoop) ? 'pointer' : 'not-allowed',
+                  opacity: (deckState.isLoaded && hasLoop) ? 1 : 0.3,
+                  boxShadow: deckState.loopActive ? `0 0 8px ${accent}44` : 'none',
+                  transition: 'all 0.1s'
+                }}
+              >LOOP</button>
+
+              {/* RELOOP */}
+              <button
+                onClick={() => { audioEngine.reloop(deck); setActiveBeatLoop(activeBeatLoop) }}
+                disabled={!deckState.isLoaded || !hasLoop}
+                title="Jump to loop start"
+                style={{
+                  flex: 1.3, height: 24, borderRadius: 5,
+                  border: `1px solid #558866`,
+                  background: 'linear-gradient(145deg, #101a14, #0a100e)',
+                  color: '#44bb77', fontSize: 9, fontWeight: 700,
+                  cursor: (deckState.isLoaded && hasLoop) ? 'pointer' : 'not-allowed',
+                  opacity: (deckState.isLoaded && hasLoop) ? 1 : 0.3
+                }}
+              >RELOOP</button>
+
+              {/* ½ */}
+              <button
+                onClick={() => audioEngine.loopHalve(deck)}
+                disabled={!deckState.isLoaded || !hasLoop}
+                title="Halve loop length"
+                style={{
+                  flex: 1, height: 24, borderRadius: 5,
+                  border: `1px solid #445577`,
+                  background: 'linear-gradient(145deg, #10121e, #0a0c14)',
+                  color: '#6688cc', fontSize: 9, fontWeight: 700,
+                  cursor: (deckState.isLoaded && hasLoop) ? 'pointer' : 'not-allowed',
+                  opacity: (deckState.isLoaded && hasLoop) ? 1 : 0.3
+                }}
+              >½</button>
+
+              {/* ×2 */}
+              <button
+                onClick={() => audioEngine.loopDouble(deck)}
+                disabled={!deckState.isLoaded || !hasLoop}
+                title="Double loop length"
+                style={{
+                  flex: 1, height: 24, borderRadius: 5,
+                  border: `1px solid #445577`,
+                  background: 'linear-gradient(145deg, #10121e, #0a0c14)',
+                  color: '#6688cc', fontSize: 9, fontWeight: 700,
+                  cursor: (deckState.isLoaded && hasLoop) ? 'pointer' : 'not-allowed',
+                  opacity: (deckState.isLoaded && hasLoop) ? 1 : 0.3
+                }}
+              >×2</button>
+            </div>
+
+            {/* Loop point display */}
+            {hasLoop && (
+              <div style={{ display: 'flex', gap: 6, paddingLeft: 31, fontSize: 9, color: '#555577', fontFamily: 'monospace' }}>
+                <span style={{ color: '#cc9944' }}>IN {formatTime(deckState.loopStart)}</span>
+                <span>→</span>
+                <span style={{ color: '#cc9944' }}>OUT {formatTime(deckState.loopEnd)}</span>
+                <span style={{ color: accent + '88' }}>({(deckState.loopEnd - deckState.loopStart).toFixed(2)}s)</span>
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* ── ROW 5: Transport + Nudge ── */}
       <div style={{

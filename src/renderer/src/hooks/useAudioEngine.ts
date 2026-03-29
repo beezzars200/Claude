@@ -39,6 +39,9 @@ interface DeckNodes {
   isPlaying: boolean
   analyser: AnalyserNode
   playbackRate: number
+  loopActive: boolean
+  loopStart: number
+  loopEnd: number
 }
 
 interface AudioEngineRef {
@@ -164,7 +167,10 @@ function createDeckNodes(ctx: AudioContext, masterGain: GainNode, recorderDest: 
     startOffset: 0,
     isPlaying: false,
     analyser,
-    playbackRate: 1.0
+    playbackRate: 1.0,
+    loopActive: false,
+    loopStart: 0,
+    loopEnd: 0
   }
 }
 
@@ -242,14 +248,17 @@ export function useAudioEngine() {
     if (!eng.context) return
 
     const loop = () => {
-      const { deckA: deckAState, deckB: deckBState } = storeRef.current
-
       if (eng.deckA && eng.deckA.isPlaying && eng.context) {
         const elapsed = eng.context.currentTime - eng.deckA.startTime
-        const currentTime = Math.min(eng.deckA.startOffset + elapsed * eng.deckA.playbackRate, eng.deckA.buffer?.duration || 0)
+        let currentTime = eng.deckA.startOffset + elapsed * eng.deckA.playbackRate
+        if (eng.deckA.loopActive && eng.deckA.loopEnd > eng.deckA.loopStart && currentTime >= eng.deckA.loopEnd) {
+          const loopLen = eng.deckA.loopEnd - eng.deckA.loopStart
+          currentTime = eng.deckA.loopStart + ((currentTime - eng.deckA.loopStart) % loopLen)
+        }
+        currentTime = Math.min(currentTime, eng.deckA.buffer?.duration || 0)
         setDeckA({ currentTime })
 
-        if (eng.deckA.buffer && currentTime >= eng.deckA.buffer.duration) {
+        if (!eng.deckA.loopActive && eng.deckA.buffer && currentTime >= eng.deckA.buffer.duration) {
           eng.deckA.isPlaying = false
           setDeckA({ isPlaying: false, currentTime: eng.deckA.buffer.duration })
         }
@@ -257,10 +266,15 @@ export function useAudioEngine() {
 
       if (eng.deckB && eng.deckB.isPlaying && eng.context) {
         const elapsed = eng.context.currentTime - eng.deckB.startTime
-        const currentTime = Math.min(eng.deckB.startOffset + elapsed * eng.deckB.playbackRate, eng.deckB.buffer?.duration || 0)
+        let currentTime = eng.deckB.startOffset + elapsed * eng.deckB.playbackRate
+        if (eng.deckB.loopActive && eng.deckB.loopEnd > eng.deckB.loopStart && currentTime >= eng.deckB.loopEnd) {
+          const loopLen = eng.deckB.loopEnd - eng.deckB.loopStart
+          currentTime = eng.deckB.loopStart + ((currentTime - eng.deckB.loopStart) % loopLen)
+        }
+        currentTime = Math.min(currentTime, eng.deckB.buffer?.duration || 0)
         setDeckB({ currentTime })
 
-        if (eng.deckB.buffer && currentTime >= eng.deckB.buffer.duration) {
+        if (!eng.deckB.loopActive && eng.deckB.buffer && currentTime >= eng.deckB.buffer.duration) {
           eng.deckB.isPlaying = false
           setDeckB({ isPlaying: false, currentTime: eng.deckB.buffer.duration })
         }
@@ -467,6 +481,16 @@ export function useAudioEngine() {
       source.connect(deckNodes.gainNode)
       source.playbackRate.value = deckNodes.playbackRate
 
+      if (deckNodes.loopActive && deckNodes.loopEnd > deckNodes.loopStart) {
+        source.loop = true
+        source.loopStart = deckNodes.loopStart
+        source.loopEnd = deckNodes.loopEnd
+        // Clamp startOffset into loop range
+        if (deckNodes.startOffset < deckNodes.loopStart || deckNodes.startOffset >= deckNodes.loopEnd) {
+          deckNodes.startOffset = deckNodes.loopStart
+        }
+      }
+
       const offset = Math.min(deckNodes.startOffset, deckNodes.buffer.duration - 0.01)
       source.start(0, offset)
 
@@ -654,6 +678,156 @@ export function useAudioEngine() {
     if (params.wet !== undefined) deckNodes.flangerWet.gain.value = params.wet
   }, [])
 
+  // Helper: get current playback position accounting for loop wrapping
+  const getCurrentTime = useCallback((deck: 'A' | 'B'): number => {
+    const eng = engineRef.current
+    const deckNodes = deck === 'A' ? eng.deckA : eng.deckB
+    if (!deckNodes || !eng.context) return 0
+    if (!deckNodes.isPlaying) return deckNodes.startOffset
+    const elapsed = eng.context.currentTime - deckNodes.startTime
+    let t = deckNodes.startOffset + elapsed * deckNodes.playbackRate
+    if (deckNodes.loopActive && deckNodes.loopEnd > deckNodes.loopStart) {
+      const loopLen = deckNodes.loopEnd - deckNodes.loopStart
+      if (t >= deckNodes.loopEnd) {
+        t = deckNodes.loopStart + ((t - deckNodes.loopStart) % loopLen)
+      }
+    }
+    return t
+  }, [])
+
+  // Set loop in point at current playback position
+  const setLoopIn = useCallback((deck: 'A' | 'B') => {
+    const deckNodes = deck === 'A' ? engineRef.current.deckA : engineRef.current.deckB
+    if (!deckNodes) return
+    const t = getCurrentTime(deck)
+    deckNodes.loopStart = t
+    if (deckNodes.loopEnd <= t) deckNodes.loopEnd = 0
+    const setter = deck === 'A' ? setDeckA : setDeckB
+    setter({ loopStart: t })
+  }, [getCurrentTime, setDeckA, setDeckB])
+
+  // Set loop out point at current position and activate loop
+  const setLoopOut = useCallback((deck: 'A' | 'B') => {
+    const deckNodes = deck === 'A' ? engineRef.current.deckA : engineRef.current.deckB
+    if (!deckNodes || !deckNodes.buffer) return
+    const t = getCurrentTime(deck)
+    if (t <= deckNodes.loopStart) return
+    deckNodes.loopEnd = t
+    deckNodes.loopActive = true
+    if (deckNodes.source) {
+      deckNodes.source.loop = true
+      deckNodes.source.loopStart = deckNodes.loopStart
+      deckNodes.source.loopEnd = t
+    }
+    const setter = deck === 'A' ? setDeckA : setDeckB
+    setter({ loopEnd: t, loopActive: true })
+  }, [getCurrentTime, setDeckA, setDeckB])
+
+  // Toggle loop on/off (preserves loop points)
+  const toggleLoop = useCallback((deck: 'A' | 'B') => {
+    const deckNodes = deck === 'A' ? engineRef.current.deckA : engineRef.current.deckB
+    if (!deckNodes || !deckNodes.buffer || deckNodes.loopEnd <= deckNodes.loopStart) return
+    const next = !deckNodes.loopActive
+    deckNodes.loopActive = next
+    if (deckNodes.source) {
+      deckNodes.source.loop = next
+      if (next) {
+        deckNodes.source.loopStart = deckNodes.loopStart
+        deckNodes.source.loopEnd = deckNodes.loopEnd
+      }
+    }
+    const setter = deck === 'A' ? setDeckA : setDeckB
+    setter({ loopActive: next })
+  }, [setDeckA, setDeckB])
+
+  // Exit loop — disable loop and continue playing through
+  const exitLoop = useCallback((deck: 'A' | 'B') => {
+    const deckNodes = deck === 'A' ? engineRef.current.deckA : engineRef.current.deckB
+    if (!deckNodes) return
+    deckNodes.loopActive = false
+    if (deckNodes.source) deckNodes.source.loop = false
+    const setter = deck === 'A' ? setDeckA : setDeckB
+    setter({ loopActive: false })
+  }, [setDeckA, setDeckB])
+
+  // Set beat loop: beats = number of beats (0.5=1/8 bar, 1=1/4, 2=1/2, 4=1, 8=2 bars etc.)
+  const setBeatLoop = useCallback((deck: 'A' | 'B', beats: number) => {
+    const eng = engineRef.current
+    const deckNodes = deck === 'A' ? eng.deckA : eng.deckB
+    const deckStateVal = deck === 'A' ? storeRef.current.deckA : storeRef.current.deckB
+    if (!deckNodes || !deckNodes.buffer) return
+
+    const effectiveBPM = deckStateVal.bpm > 0
+      ? deckStateVal.bpm * (1.0 + (deckStateVal.pitch - 0.5) * 0.32)
+      : 120
+    const loopDuration = beats * (60 / effectiveBPM)
+    const currentT = getCurrentTime(deck)
+    const loopStart = currentT
+    const loopEnd = Math.min(loopStart + loopDuration, deckNodes.buffer.duration)
+
+    deckNodes.loopStart = loopStart
+    deckNodes.loopEnd = loopEnd
+    deckNodes.loopActive = true
+
+    // Stop current source and restart from loopStart with loop enabled
+    const wasPlaying = deckNodes.isPlaying
+    if (deckNodes.source) {
+      try { deckNodes.source.stop() } catch (_) {}
+      deckNodes.source.disconnect()
+      deckNodes.source = null
+    }
+    deckNodes.isPlaying = false
+    deckNodes.startOffset = loopStart
+
+    const setter = deck === 'A' ? setDeckA : setDeckB
+    setter({ loopActive: true, loopStart, loopEnd, currentTime: loopStart })
+
+    if (wasPlaying) playDeck(deck)
+  }, [getCurrentTime, playDeck, setDeckA, setDeckB])
+
+  // Halve the loop length
+  const loopHalve = useCallback((deck: 'A' | 'B') => {
+    const deckNodes = deck === 'A' ? engineRef.current.deckA : engineRef.current.deckB
+    if (!deckNodes || deckNodes.loopEnd <= deckNodes.loopStart) return
+    const newEnd = deckNodes.loopStart + (deckNodes.loopEnd - deckNodes.loopStart) / 2
+    deckNodes.loopEnd = newEnd
+    if (deckNodes.source) deckNodes.source.loopEnd = newEnd
+    const setter = deck === 'A' ? setDeckA : setDeckB
+    setter({ loopEnd: newEnd })
+  }, [setDeckA, setDeckB])
+
+  // Double the loop length
+  const loopDouble = useCallback((deck: 'A' | 'B') => {
+    const deckNodes = deck === 'A' ? engineRef.current.deckA : engineRef.current.deckB
+    if (!deckNodes || !deckNodes.buffer || deckNodes.loopEnd <= deckNodes.loopStart) return
+    const newEnd = Math.min(
+      deckNodes.loopStart + (deckNodes.loopEnd - deckNodes.loopStart) * 2,
+      deckNodes.buffer.duration
+    )
+    deckNodes.loopEnd = newEnd
+    if (deckNodes.source) deckNodes.source.loopEnd = newEnd
+    const setter = deck === 'A' ? setDeckA : setDeckB
+    setter({ loopEnd: newEnd })
+  }, [setDeckA, setDeckB])
+
+  // Reloop: jump back to loop start and re-enable loop
+  const reloop = useCallback((deck: 'A' | 'B') => {
+    const deckNodes = deck === 'A' ? engineRef.current.deckA : engineRef.current.deckB
+    if (!deckNodes || !deckNodes.buffer || deckNodes.loopEnd <= deckNodes.loopStart) return
+    const wasPlaying = deckNodes.isPlaying
+    if (deckNodes.source) {
+      try { deckNodes.source.stop() } catch (_) {}
+      deckNodes.source.disconnect()
+      deckNodes.source = null
+    }
+    deckNodes.isPlaying = false
+    deckNodes.loopActive = true
+    deckNodes.startOffset = deckNodes.loopStart
+    const setter = deck === 'A' ? setDeckA : setDeckB
+    setter({ loopActive: true, currentTime: deckNodes.loopStart })
+    if (wasPlaying) playDeck(deck)
+  }, [playDeck, setDeckA, setDeckB])
+
   // Analyze a file's BPM (used by Library for background caching)
   const analyzeTrackBPM = useCallback(async (filePath: string): Promise<number> => {
     try {
@@ -807,6 +981,14 @@ export function useAudioEngine() {
     startRecording,
     stopRecording,
     getAnalyserData,
-    getWaveformData
+    getWaveformData,
+    setLoopIn,
+    setLoopOut,
+    toggleLoop,
+    exitLoop,
+    setBeatLoop,
+    loopHalve,
+    loopDouble,
+    reloop
   }
 }

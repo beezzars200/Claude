@@ -36,6 +36,9 @@ export interface DeckState {
   waveformLF: Float32Array | null
   waveformMF: Float32Array | null
   waveformHF: Float32Array | null
+  loopActive: boolean
+  loopStart: number
+  loopEnd: number
 }
 
 export interface BroadcastState {
@@ -109,7 +112,10 @@ const defaultDeck: DeckState = {
   waveform: null,
   waveformLF: null,
   waveformMF: null,
-  waveformHF: null
+  waveformHF: null,
+  loopActive: false,
+  loopStart: 0,
+  loopEnd: 0
 }
 
 export const useStore = create<AppStore>((set) => ({
