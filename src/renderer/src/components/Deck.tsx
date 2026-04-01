@@ -27,10 +27,11 @@ interface DeckProps {
     loopHalve: (deck: 'A' | 'B') => void
     loopDouble: (deck: 'A' | 'B') => void
     reloop: (deck: 'A' | 'B') => void
+    beatSync: (deck: 'A' | 'B') => void
   }
 }
 
-const ACCENT = { A: '#00ff88', B: '#0088ff' }
+const ACCENT = { A: '#00ff99', B: '#0099ff' }
 const BG = { A: '#0a1a0f', B: '#0a0f1a' }
 
 function formatTime(seconds: number): string {

@@ -57,6 +57,54 @@ interface AudioEngineRef {
   animFrameId: number | null
 }
 
+function detectBeatPhase(buffer: AudioBuffer, bpm: number): number {
+  if (bpm <= 0) return -1
+  const sampleRate = buffer.sampleRate
+  const data = buffer.getChannelData(0)
+  // Only analyze first 30 seconds for speed
+  const analyzeLen = Math.min(data.length, Math.floor(sampleRate * 30))
+
+  const hop = Math.floor(sampleRate * 0.005)
+  const frame = Math.floor(sampleRate * 0.023)
+  const numFrames = Math.floor((analyzeLen - frame) / hop)
+  if (numFrames < 100) return -1
+
+  // Compute RMS energy per frame
+  const energy = new Float32Array(numFrames)
+  for (let i = 0; i < numFrames; i++) {
+    const s = i * hop
+    let e = 0
+    for (let j = 0; j < frame; j++) e += data[s + j] * data[s + j]
+    energy[i] = Math.sqrt(e / frame)
+  }
+
+  // Half-wave rectified onset strength
+  const onset = new Float32Array(numFrames)
+  for (let i = 1; i < numFrames; i++) {
+    const d = energy[i] - energy[i - 1]
+    onset[i] = d > 0 ? d : 0
+  }
+
+  const frameRate = sampleRate / hop
+  const beatPeriod = Math.round(frameRate * 60 / bpm)
+  if (beatPeriod < 1) return -1
+
+  // Accumulate onset strength into phase bins
+  const phaseBins = new Float32Array(beatPeriod)
+  for (let i = 0; i < numFrames; i++) {
+    phaseBins[i % beatPeriod] += onset[i]
+  }
+
+  // Best phase = argmax
+  let bestPhase = 0
+  let bestVal = 0
+  for (let p = 0; p < beatPeriod; p++) {
+    if (phaseBins[p] > bestVal) { bestVal = phaseBins[p]; bestPhase = p }
+  }
+
+  return (bestPhase * hop) / sampleRate
+}
+
 function createDeckNodes(ctx: AudioContext, masterGain: GainNode, recorderDest: MediaStreamAudioDestinationNode): DeckNodes {
   const gainNode = ctx.createGain()
   const eqLow = ctx.createBiquadFilter()
@@ -345,6 +393,8 @@ export function useAudioEngine() {
           bpm = fallbackBPM(audioBuffer)
         }
 
+        const beatPhase = detectBeatPhase(audioBuffer, bpm)
+
         const { waveform, waveformLF, waveformMF, waveformHF } = computeWaveformData(audioBuffer)
 
         setter({
@@ -353,6 +403,7 @@ export function useAudioEngine() {
           currentTime: 0,
           duration: audioBuffer.duration,
           bpm,
+          beatPhase,
           waveform,
           waveformLF,
           waveformMF,
@@ -593,6 +644,78 @@ export function useAudioEngine() {
     setter({ pitch: pitchValue })
   }, [setDeckA, setDeckB])
 
+  const beatSync = useCallback((deck: 'A' | 'B') => {
+    // First sync BPM
+    const eng = engineRef.current
+    const myState = deck === 'A' ? storeRef.current.deckA : storeRef.current.deckB
+    const otherState = deck === 'A' ? storeRef.current.deckB : storeRef.current.deckA
+    if (!myState.bpm || !otherState.bpm) return
+
+    const otherEffectiveBPM = otherState.bpm * (1.0 + (otherState.pitch - 0.5) * 0.32)
+    const requiredRate = otherEffectiveBPM / myState.bpm
+    const clampedRate = Math.max(0.84, Math.min(1.16, requiredRate))
+    const pitchValue = Math.max(0, Math.min(1, (clampedRate - 1.0) / 0.32 + 0.5))
+
+    const deckNodes = deck === 'A' ? eng.deckA : eng.deckB
+    if (!deckNodes) return
+    deckNodes.playbackRate = clampedRate
+    if (deckNodes.source) deckNodes.source.playbackRate.value = clampedRate
+
+    const setter = deck === 'A' ? setDeckA : setDeckB
+    setter({ pitch: pitchValue })
+
+    // Now align beat phase — only if both decks have valid beat phase data
+    if (myState.beatPhase < 0 || otherState.beatPhase < 0) return
+    if (!otherState.isPlaying) return
+
+    const otherDeckNodes = deck === 'A' ? eng.deckB : eng.deckA
+    if (!otherDeckNodes || !eng.context) return
+
+    // Get other deck's current playback time
+    const otherElapsed = eng.context.currentTime - otherDeckNodes.startTime
+    const otherCurrentTime = otherDeckNodes.isPlaying
+      ? otherDeckNodes.startOffset + otherElapsed * otherDeckNodes.playbackRate
+      : otherDeckNodes.startOffset
+
+    // Compute other deck's phase within its current beat cycle
+    const otherBeatInterval = 60 / otherEffectiveBPM
+    const otherPhaseOffset = ((otherCurrentTime - otherState.beatPhase) % otherBeatInterval + otherBeatInterval) % otherBeatInterval
+
+    // Compute my current time and beat interval
+    const myCurrentTime = getCurrentTime(deck)
+    const myEffectiveBPM = myState.bpm * clampedRate
+    const myBeatInterval = 60 / myEffectiveBPM
+
+    // Find nearest position where my phase matches other deck's phase
+    // My grid: beatPhase + n * myBeatInterval
+    // We want: (target - myState.beatPhase) % myBeatInterval ≈ otherPhaseOffset
+    const myBeatsFromPhase = (myCurrentTime - myState.beatPhase) / myBeatInterval
+    const myCurrentBeat = Math.floor(myBeatsFromPhase)
+    const targetTime = myState.beatPhase + myCurrentBeat * myBeatInterval + otherPhaseOffset
+
+    // Seek to aligned position
+    const wasPlaying = deckNodes.isPlaying
+    if (wasPlaying) {
+      const pauseElapsed = eng.context.currentTime - deckNodes.startTime
+      deckNodes.startOffset = Math.min(
+        deckNodes.startOffset + pauseElapsed * deckNodes.playbackRate,
+        deckNodes.buffer?.duration || 0
+      )
+      if (deckNodes.source) {
+        try { deckNodes.source.stop() } catch (_) {}
+        deckNodes.source.disconnect()
+        deckNodes.source = null
+      }
+      deckNodes.isPlaying = false
+    }
+
+    const clampedTarget = Math.max(0, Math.min(targetTime, deckNodes.buffer?.duration ?? 0))
+    deckNodes.startOffset = clampedTarget
+    setter({ currentTime: clampedTarget })
+
+    if (wasPlaying) playDeck(deck)
+  }, [getCurrentTime, playDeck, setDeckA, setDeckB])
+
   const nudgeDeck = useCallback((deck: 'A' | 'B', direction: 1 | -1) => {
     const eng = engineRef.current
     const deckNodes = deck === 'A' ? eng.deckA : eng.deckB
@@ -762,7 +885,16 @@ export function useAudioEngine() {
       : 120
     const loopDuration = beats * (60 / effectiveBPM)
     const currentT = getCurrentTime(deck)
-    const loopStart = currentT
+    let loopStart = currentT
+    if (deckStateVal.bpm > 0 && deckStateVal.beatPhase >= 0) {
+      const beatInterval = 60 / effectiveBPM
+      const beatsFromPhase = (currentT - deckStateVal.beatPhase) / beatInterval
+      const nearestBeat = Math.round(beatsFromPhase)
+      const snapped = deckStateVal.beatPhase + nearestBeat * beatInterval
+      if (Math.abs(snapped - currentT) <= beatInterval * 0.5) {
+        loopStart = Math.max(0, snapped)
+      }
+    }
     const loopEnd = Math.min(loopStart + loopDuration, deckNodes.buffer.duration)
 
     deckNodes.loopStart = loopStart
@@ -989,6 +1121,7 @@ export function useAudioEngine() {
     setBeatLoop,
     loopHalve,
     loopDouble,
-    reloop
+    reloop,
+    beatSync
   }
 }

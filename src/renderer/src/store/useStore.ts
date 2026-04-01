@@ -39,6 +39,7 @@ export interface DeckState {
   loopActive: boolean
   loopStart: number
   loopEnd: number
+  beatPhase: number
 }
 
 export interface BroadcastState {
@@ -115,7 +116,8 @@ const defaultDeck: DeckState = {
   waveformHF: null,
   loopActive: false,
   loopStart: 0,
-  loopEnd: 0
+  loopEnd: 0,
+  beatPhase: -1
 }
 
 export const useStore = create<AppStore>((set) => ({
