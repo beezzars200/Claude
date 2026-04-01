@@ -644,78 +644,6 @@ export function useAudioEngine() {
     setter({ pitch: pitchValue })
   }, [setDeckA, setDeckB])
 
-  const beatSync = useCallback((deck: 'A' | 'B') => {
-    // First sync BPM
-    const eng = engineRef.current
-    const myState = deck === 'A' ? storeRef.current.deckA : storeRef.current.deckB
-    const otherState = deck === 'A' ? storeRef.current.deckB : storeRef.current.deckA
-    if (!myState.bpm || !otherState.bpm) return
-
-    const otherEffectiveBPM = otherState.bpm * (1.0 + (otherState.pitch - 0.5) * 0.32)
-    const requiredRate = otherEffectiveBPM / myState.bpm
-    const clampedRate = Math.max(0.84, Math.min(1.16, requiredRate))
-    const pitchValue = Math.max(0, Math.min(1, (clampedRate - 1.0) / 0.32 + 0.5))
-
-    const deckNodes = deck === 'A' ? eng.deckA : eng.deckB
-    if (!deckNodes) return
-    deckNodes.playbackRate = clampedRate
-    if (deckNodes.source) deckNodes.source.playbackRate.value = clampedRate
-
-    const setter = deck === 'A' ? setDeckA : setDeckB
-    setter({ pitch: pitchValue })
-
-    // Now align beat phase — only if both decks have valid beat phase data
-    if (myState.beatPhase < 0 || otherState.beatPhase < 0) return
-    if (!otherState.isPlaying) return
-
-    const otherDeckNodes = deck === 'A' ? eng.deckB : eng.deckA
-    if (!otherDeckNodes || !eng.context) return
-
-    // Get other deck's current playback time
-    const otherElapsed = eng.context.currentTime - otherDeckNodes.startTime
-    const otherCurrentTime = otherDeckNodes.isPlaying
-      ? otherDeckNodes.startOffset + otherElapsed * otherDeckNodes.playbackRate
-      : otherDeckNodes.startOffset
-
-    // Compute other deck's phase within its current beat cycle
-    const otherBeatInterval = 60 / otherEffectiveBPM
-    const otherPhaseOffset = ((otherCurrentTime - otherState.beatPhase) % otherBeatInterval + otherBeatInterval) % otherBeatInterval
-
-    // Compute my current time and beat interval
-    const myCurrentTime = getCurrentTime(deck)
-    const myEffectiveBPM = myState.bpm * clampedRate
-    const myBeatInterval = 60 / myEffectiveBPM
-
-    // Find nearest position where my phase matches other deck's phase
-    // My grid: beatPhase + n * myBeatInterval
-    // We want: (target - myState.beatPhase) % myBeatInterval ≈ otherPhaseOffset
-    const myBeatsFromPhase = (myCurrentTime - myState.beatPhase) / myBeatInterval
-    const myCurrentBeat = Math.floor(myBeatsFromPhase)
-    const targetTime = myState.beatPhase + myCurrentBeat * myBeatInterval + otherPhaseOffset
-
-    // Seek to aligned position
-    const wasPlaying = deckNodes.isPlaying
-    if (wasPlaying) {
-      const pauseElapsed = eng.context.currentTime - deckNodes.startTime
-      deckNodes.startOffset = Math.min(
-        deckNodes.startOffset + pauseElapsed * deckNodes.playbackRate,
-        deckNodes.buffer?.duration || 0
-      )
-      if (deckNodes.source) {
-        try { deckNodes.source.stop() } catch (_) {}
-        deckNodes.source.disconnect()
-        deckNodes.source = null
-      }
-      deckNodes.isPlaying = false
-    }
-
-    const clampedTarget = Math.max(0, Math.min(targetTime, deckNodes.buffer?.duration ?? 0))
-    deckNodes.startOffset = clampedTarget
-    setter({ currentTime: clampedTarget })
-
-    if (wasPlaying) playDeck(deck)
-  }, [getCurrentTime, playDeck, setDeckA, setDeckB])
-
   const nudgeDeck = useCallback((deck: 'A' | 'B', direction: 1 | -1) => {
     const eng = engineRef.current
     const deckNodes = deck === 'A' ? eng.deckA : eng.deckB
@@ -817,6 +745,58 @@ export function useAudioEngine() {
     }
     return t
   }, [])
+
+  // Beat sync: match BPM then align beat phase between decks
+  const beatSync = useCallback((deck: 'A' | 'B') => {
+    const eng = engineRef.current
+    const myState = deck === 'A' ? storeRef.current.deckA : storeRef.current.deckB
+    const otherState = deck === 'A' ? storeRef.current.deckB : storeRef.current.deckA
+    if (!myState.bpm || !otherState.bpm) return
+
+    // Step 1: BPM sync
+    const otherEffectiveBPM = otherState.bpm * (1.0 + (otherState.pitch - 0.5) * 0.32)
+    const requiredRate = otherEffectiveBPM / myState.bpm
+    const clampedRate = Math.max(0.84, Math.min(1.16, requiredRate))
+    const pitchValue = Math.max(0, Math.min(1, (clampedRate - 1.0) / 0.32 + 0.5))
+    const deckNodes = deck === 'A' ? eng.deckA : eng.deckB
+    if (!deckNodes) return
+    deckNodes.playbackRate = clampedRate
+    if (deckNodes.source) deckNodes.source.playbackRate.value = clampedRate
+    const setter = deck === 'A' ? setDeckA : setDeckB
+    setter({ pitch: pitchValue })
+
+    // Step 2: Phase alignment — only if both grids are valid and other deck is playing
+    if (myState.beatPhase < 0 || otherState.beatPhase < 0 || !otherState.isPlaying) return
+    const otherDeckNodes = deck === 'A' ? eng.deckB : eng.deckA
+    if (!otherDeckNodes || !eng.context) return
+
+    const otherElapsed = eng.context.currentTime - otherDeckNodes.startTime
+    const otherCurrentTime = otherDeckNodes.isPlaying
+      ? otherDeckNodes.startOffset + otherElapsed * otherDeckNodes.playbackRate
+      : otherDeckNodes.startOffset
+    const otherBeatInterval = 60 / otherEffectiveBPM
+    const otherPhaseOffset = ((otherCurrentTime - otherState.beatPhase) % otherBeatInterval + otherBeatInterval) % otherBeatInterval
+
+    const myCurrentTime = getCurrentTime(deck)
+    const myBeatInterval = 60 / (myState.bpm * clampedRate)
+    const myBeatsFromPhase = (myCurrentTime - myState.beatPhase) / myBeatInterval
+    const myCurrentBeat = Math.floor(myBeatsFromPhase)
+    // Map other deck's phase fraction onto my beat interval
+    const otherPhaseFrac = otherPhaseOffset / otherBeatInterval
+    const targetTime = myState.beatPhase + myCurrentBeat * myBeatInterval + otherPhaseFrac * myBeatInterval
+
+    const wasPlaying = deckNodes.isPlaying
+    if (wasPlaying) {
+      const elapsed = eng.context.currentTime - deckNodes.startTime
+      deckNodes.startOffset = Math.min(deckNodes.startOffset + elapsed * deckNodes.playbackRate, deckNodes.buffer?.duration || 0)
+      if (deckNodes.source) { try { deckNodes.source.stop() } catch (_) {}; deckNodes.source.disconnect(); deckNodes.source = null }
+      deckNodes.isPlaying = false
+    }
+    const clamped = Math.max(0, Math.min(targetTime, deckNodes.buffer?.duration ?? 0))
+    deckNodes.startOffset = clamped
+    setter({ currentTime: clamped })
+    if (wasPlaying) playDeck(deck)
+  }, [getCurrentTime, playDeck, setDeckA, setDeckB])
 
   // Set loop in point at current playback position
   const setLoopIn = useCallback((deck: 'A' | 'B') => {

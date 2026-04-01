@@ -32,7 +32,7 @@ interface DeckProps {
 }
 
 const ACCENT = { A: '#00ff99', B: '#0099ff' }
-const BG = { A: '#0a1a0f', B: '#0a0f1a' }
+const BG = { A: '#030308', B: '#030308' }
 
 function formatTime(seconds: number): string {
   if (!seconds || isNaN(seconds)) return '0:00'
@@ -74,19 +74,22 @@ export function Knob({ label, value, onChange, accent }: KnobProps) {
       <div
         className="knob"
         style={{
-          width: 42, height: 42, borderRadius: '50%',
-          background: 'radial-gradient(circle at 35% 35%, #2a2a3e, #12121a)',
-          border: `2px solid ${value === 0.5 ? '#3a3a5a' : accent}`,
+          width: 46, height: 46, borderRadius: '50%',
+          background: 'radial-gradient(circle at 33% 28%, #3a3a52, #1e1e2c 45%, #0e0e18)',
+          border: `2px solid ${value === 0.5 ? '#2e2e48' : accent + 'cc'}`,
           position: 'relative', cursor: 'ns-resize',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)',
+          boxShadow: value === 0.5
+            ? '0 3px 10px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.06)'
+            : `0 3px 10px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.08), 0 0 12px ${accent}22`,
           userSelect: 'none'
         }}
         onMouseDown={onMouseDown}
       >
+        {/* Indicator line with gradient: transparent at base, accent at tip */}
         <div style={{
           position: 'absolute', top: '50%', left: '50%',
-          width: 2, height: 14,
-          background: value === 0.5 ? '#5a5a7a' : accent,
+          width: 2, height: 16,
+          background: `linear-gradient(to top, transparent 0%, ${value === 0.5 ? '#5a5a7a' : accent} 100%)`,
           borderRadius: 1,
           transformOrigin: '50% 100%',
           transform: `translate(-50%, -100%) rotate(${rotation}deg)`
@@ -149,26 +152,38 @@ function Scrubber({ value, max, onChange, accent }: { value: number; max: number
 
 // ----- Premium Button -----
 
-function PremiumBtn({ onClick, disabled = false, active = false, color, size = 48, children, label }: {
+function PremiumBtn({ onClick, disabled = false, active = false, color, size = 46, children, label }: {
   onClick: () => void; disabled?: boolean; active?: boolean; color: string; size?: number; children: React.ReactNode; label?: string
 }) {
+  const [pressed, setPressed] = useState(false)
   return (
-    <button onClick={onClick} disabled={disabled} title={label} style={{
-      width: size, height: size, borderRadius: 8,
-      border: `1px solid ${active ? color : color + '55'}`,
-      background: active
-        ? `linear-gradient(145deg, ${color}dd, ${color}88)`
-        : 'linear-gradient(145deg, #1e1e2a, #12121a)',
-      color: active ? '#08080e' : color,
-      fontSize: typeof children === 'string' && children.length > 2 ? 11 : 16,
-      fontWeight: 700, letterSpacing: '0.04em',
-      cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.3 : 1,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      flexShrink: 0, transition: 'all 0.12s',
-      boxShadow: active
-        ? `0 0 14px ${color}55, inset 0 1px 0 rgba(255,255,255,0.18), 0 3px 6px rgba(0,0,0,0.7)`
-        : 'inset 0 1px 0 rgba(255,255,255,0.06), inset 0 -1px 0 rgba(0,0,0,0.5), 0 3px 8px rgba(0,0,0,0.7)'
-    }}>
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={label}
+      onMouseDown={() => setPressed(true)}
+      onMouseUp={() => setPressed(false)}
+      onMouseLeave={() => setPressed(false)}
+      style={{
+        width: size, height: size, borderRadius: 8,
+        border: `1px solid ${active ? color : pressed ? color + '99' : color + '55'}`,
+        background: active
+          ? `linear-gradient(145deg, ${color}dd, ${color}88)`
+          : pressed
+            ? `linear-gradient(145deg, #16162a, #0e0e1a)`
+            : 'linear-gradient(145deg, #1e1e2a, #12121a)',
+        color: active ? '#08080e' : color,
+        fontSize: typeof children === 'string' && children.length > 2 ? 11 : 16,
+        fontWeight: 700, letterSpacing: '0.04em',
+        cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.3 : 1,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexShrink: 0, transition: 'all 0.08s',
+        boxShadow: active
+          ? `0 0 14px ${color}55, inset 0 1px 0 rgba(255,255,255,0.18), 0 2px 4px rgba(0,0,0,0.8)`
+          : pressed
+            ? `inset 0 2px 4px rgba(0,0,0,0.9), 0 1px 2px rgba(0,0,0,0.6)`
+            : 'inset 0 1px 0 rgba(255,255,255,0.06), inset 0 -1px 0 rgba(0,0,0,0.5), 0 3px 8px rgba(0,0,0,0.7)'
+      }}>
       {children}
     </button>
   )
@@ -517,14 +532,58 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     const W = canvas.width, H = canvas.height
-    ctx.clearRect(0, 0, W, H)
-    ctx.fillStyle = bg
+
+    // Background gradient
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, H)
+    bgGrad.addColorStop(0, bg)
+    bgGrad.addColorStop(1, '#030308')
+    ctx.fillStyle = bgGrad
     ctx.fillRect(0, 0, W, H)
 
     const { waveform, waveformLF, waveformMF, waveformHF } = deckState
+    const dur = durationRef.current
+    const currentT = currentTimeRef.current
+
+    // Draw beat grid FIRST (before waveform bars)
+    if (deckState.bpm > 0 && deckState.beatPhase >= 0 && dur > 0) {
+      const effectiveBPM = deckState.bpm * (1.0 + (deckState.pitch - 0.5) * 0.32)
+      const beatInterval = 60 / effectiveBPM
+      const beatPhase = deckState.beatPhase
+
+      // Find first beat at or after 0
+      const firstBeatIndex = Math.ceil(-beatPhase / beatInterval)
+      const maxBeats = Math.ceil(dur / beatInterval) + 2
+
+      for (let n = firstBeatIndex; n <= firstBeatIndex + maxBeats; n++) {
+        const beatTime = beatPhase + n * beatInterval
+        if (beatTime < 0 || beatTime > dur) continue
+        const x = Math.floor((beatTime / dur) * W)
+        const beatInBar = ((n % 4) + 4) % 4  // 0=bar, 1=beat, 2=half-bar, 3=beat
+
+        if (beatInBar === 0) {
+          // Bar line: full height, accent + '44'
+          ctx.fillStyle = accent + '44'
+          ctx.fillRect(x, 0, 1, H)
+          // Bar number label
+          const barNum = Math.floor(n / 4) + 1
+          ctx.fillStyle = accent + 'aa'
+          ctx.font = '9px monospace'
+          ctx.fillText(String(barNum), x + 2, 10)
+        } else if (beatInBar === 2) {
+          // Half-bar line: lower 50%, accent + '1e'
+          ctx.fillStyle = accent + '1e'
+          ctx.fillRect(x, Math.floor(H * 0.5), 1, Math.ceil(H * 0.5))
+        } else {
+          // Beat tick: lower 30%, accent + '12'
+          ctx.fillStyle = accent + '12'
+          ctx.fillRect(x, Math.floor(H * 0.7), 1, Math.ceil(H * 0.3))
+        }
+      }
+    }
+
     if (waveform && waveform.length > 0) {
       const numPoints = waveform.length
-      const progress = durationRef.current > 0 ? currentTimeRef.current / durationRef.current : 0
+      const progress = dur > 0 ? currentT / dur : 0
       const playedBars = Math.floor(progress * numPoints)
       const barWidth = W / numPoints
 
@@ -551,28 +610,41 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
         drawBar(i, Math.max(1, barWidth - 0.5), i * barWidth, i < playedBars ? 0.9 : 0.22)
       }
 
-      // Loop region overlay
+      // Loop region overlay with IN/OUT labels
       const loopStart = deckState.loopStart
       const loopEnd = deckState.loopEnd
-      if (loopEnd > loopStart && durationRef.current > 0) {
-        const lx1 = (loopStart / durationRef.current) * W
-        const lx2 = (loopEnd / durationRef.current) * W
+      if (loopEnd > loopStart && dur > 0) {
+        const lx1 = (loopStart / dur) * W
+        const lx2 = (loopEnd / dur) * W
         ctx.fillStyle = deckState.loopActive ? accent + '22' : accent + '0f'
         ctx.fillRect(lx1, 0, lx2 - lx1, H)
+        // IN marker
         ctx.fillStyle = deckState.loopActive ? accent + 'cc' : accent + '55'
         ctx.fillRect(lx1, 0, 2, H)
+        // IN label
+        ctx.fillStyle = deckState.loopActive ? accent : accent + '88'
+        ctx.font = 'bold 9px monospace'
+        ctx.fillText('IN', lx1 + 4, H - 4)
+        // OUT marker
+        ctx.fillStyle = deckState.loopActive ? accent + 'cc' : accent + '55'
         ctx.fillRect(lx2 - 2, 0, 2, H)
+        // OUT label
+        ctx.fillStyle = deckState.loopActive ? accent : accent + '88'
+        ctx.font = 'bold 9px monospace'
+        const outLabelW = 24
+        ctx.fillText('OUT', Math.max(0, lx2 - outLabelW - 4), H - 4)
       }
 
+      // Playhead
       const playheadX = Math.floor(progress * W)
       ctx.fillStyle = '#ffffff'
       ctx.fillRect(playheadX - 1, 0, 2, H)
-      const gradient = ctx.createLinearGradient(playheadX - 16, 0, playheadX + 16, 0)
-      gradient.addColorStop(0, 'transparent')
-      gradient.addColorStop(0.5, accent + '40')
-      gradient.addColorStop(1, 'transparent')
-      ctx.fillStyle = gradient
-      ctx.fillRect(playheadX - 16, 0, 32, H)
+      const phGrad = ctx.createLinearGradient(playheadX - 20, 0, playheadX + 20, 0)
+      phGrad.addColorStop(0, 'transparent')
+      phGrad.addColorStop(0.5, accent + '40')
+      phGrad.addColorStop(1, 'transparent')
+      ctx.fillStyle = phGrad
+      ctx.fillRect(playheadX - 20, 0, 40, H)
     } else {
       ctx.strokeStyle = '#2a2a3a'
       ctx.lineWidth = 1
@@ -581,7 +653,19 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
       ctx.lineTo(W, H / 2)
       ctx.stroke()
     }
-  }, [deckState.waveform, deckState.waveformLF, deckState.waveformMF, deckState.waveformHF, deckState.loopActive, deckState.loopStart, deckState.loopEnd, accent, bg])
+
+    // Vignette: dark edges
+    const vigLeft = ctx.createLinearGradient(0, 0, 40, 0)
+    vigLeft.addColorStop(0, 'rgba(2,2,6,0.7)')
+    vigLeft.addColorStop(1, 'rgba(2,2,6,0)')
+    ctx.fillStyle = vigLeft
+    ctx.fillRect(0, 0, 40, H)
+    const vigRight = ctx.createLinearGradient(W - 40, 0, W, 0)
+    vigRight.addColorStop(0, 'rgba(2,2,6,0)')
+    vigRight.addColorStop(1, 'rgba(2,2,6,0.7)')
+    ctx.fillStyle = vigRight
+    ctx.fillRect(W - 40, 0, 40, H)
+  }, [deckState.waveform, deckState.waveformLF, deckState.waveformMF, deckState.waveformHF, deckState.loopActive, deckState.loopStart, deckState.loopEnd, deckState.bpm, deckState.beatPhase, deckState.pitch, accent, bg])
 
   const drawTopWaveform = useCallback(() => {
     const canvas = topCanvasRef.current
@@ -623,23 +707,48 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
   const rawBPM = deckState.bpm > 0 ? deckState.bpm * playbackRate : 0
   const displayBPM = rawBPM > 0 ? Math.round(rawBPM).toString() : null
 
+  // Bar:Beat position (e.g. "3.2" = bar 3, beat 2)
+  const barBeatDisplay = (() => {
+    if (deckState.bpm <= 0 || deckState.beatPhase < 0) return null
+    const effectiveBPM = deckState.bpm * playbackRate
+    const beatInterval = 60 / effectiveBPM
+    const beatsFromPhase = (deckState.currentTime - deckState.beatPhase) / beatInterval
+    const totalBeats = Math.max(0, Math.floor(beatsFromPhase))
+    const bar = Math.floor(totalBeats / 4) + 1
+    const beat = (totalBeats % 4) + 1
+    return `${bar}.${beat}`
+  })()
+
   const remaining = Math.max(0, deckState.duration - deckState.currentTime)
 
   const otherDeckBPM = useStore((s) => (deck === 'A' ? s.deckB : s.deckA).bpm)
 
   return (
     <div style={{
-      background: '#14141e',
-      border: `1px solid ${deckState.isPlaying ? accent + '40' : '#2a2a3a'}`,
+      background: 'linear-gradient(180deg, #111120 0%, #0d0d18 100%)',
+      border: `1px solid ${deckState.isPlaying ? accent + '55' : '#1e1e30'}`,
       borderRadius: 12,
-      padding: '12px 14px',
+      padding: '0 0 12px 0',
       display: 'flex',
       flexDirection: 'column',
       flex: 1,
-      gap: 8,
+      gap: 0,
       transition: 'border-color 0.3s',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      boxShadow: deckState.isPlaying ? `0 0 20px ${accent}18` : '0 2px 12px rgba(0,0,0,0.6)'
     }}>
+      {/* LED accent strip at top when playing */}
+      <div style={{
+        height: deckState.isPlaying ? 3 : 2,
+        background: deckState.isPlaying
+          ? `linear-gradient(90deg, transparent, ${accent}cc 20%, ${accent} 50%, ${accent}cc 80%, transparent)`
+          : `linear-gradient(90deg, transparent, #2a2a3a 50%, transparent)`,
+        borderRadius: '12px 12px 0 0',
+        transition: 'all 0.3s',
+        marginBottom: 10,
+        flexShrink: 0
+      }} />
+      <div style={{ padding: '0 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
 
       {/* ── ROW 1: Info bar ── */}
       <div style={{ display: 'flex', flexDirection: 'row', gap: 10, alignItems: 'stretch' }}>
@@ -655,6 +764,7 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
                 <div style={{ fontSize: 10, color: '#8888aa' }}>
                   <span style={{ color: accent, fontWeight: 700 }}>{displayBPM}</span>
                   <span style={{ marginLeft: 2 }}>BPM</span>
+                  {barBeatDisplay && <span style={{ marginLeft: 6, color: accent + '77', fontFamily: 'monospace' }}>{barBeatDisplay}</span>}
                 </div>
               )}
             </div>
@@ -721,6 +831,7 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
                 <div style={{ fontSize: 10, color: '#8888aa' }}>
                   <span style={{ color: accent, fontWeight: 700 }}>{displayBPM}</span>
                   <span style={{ marginLeft: 2 }}>BPM</span>
+                  {barBeatDisplay && <span style={{ marginLeft: 6, color: accent + '77', fontFamily: 'monospace' }}>{barBeatDisplay}</span>}
                 </div>
               )}
             </div>
@@ -739,8 +850,8 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
         <canvas
           ref={topCanvasRef}
           width={1200}
-          height={176}
-          style={{ width: '100%', height: 80, borderRadius: 6, cursor: deckState.isLoaded ? 'crosshair' : 'default', display: 'block' }}
+          height={200}
+          style={{ width: '100%', height: 92, borderRadius: 6, cursor: deckState.isLoaded ? 'crosshair' : 'default', display: 'block' }}
           onClick={handleSeek}
         />
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1013,12 +1124,12 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
               color={accent} size={44} label={deckState.isPlaying ? 'Pause' : 'Play'}
             >{deckState.isPlaying ? '⏸' : '▶'}</PremiumBtn>
             <PremiumBtn onClick={() => { pauseDeck(deck); seekDeck(deck, 0) }} disabled={!deckState.isLoaded} color="#556688" size={44} label="Stop">■</PremiumBtn>
-            <PremiumBtn onClick={() => audioEngine.syncDeck(deck)} disabled={!deckState.isLoaded || !deckState.bpm || !otherDeckBPM} color="#aa88ff" size={44} label="Sync BPM to other deck">SYNC</PremiumBtn>
+            <PremiumBtn onClick={() => audioEngine.beatSync(deck)} disabled={!deckState.isLoaded || !deckState.bpm || !otherDeckBPM} color="#aa88ff" size={44} label="Beat Sync — match BPM and phase">SYNC</PremiumBtn>
           </>
         )}
         {deck === 'B' && (
           <>
-            <PremiumBtn onClick={() => audioEngine.syncDeck(deck)} disabled={!deckState.isLoaded || !deckState.bpm || !otherDeckBPM} color="#aa88ff" size={44} label="Sync BPM to other deck">SYNC</PremiumBtn>
+            <PremiumBtn onClick={() => audioEngine.beatSync(deck)} disabled={!deckState.isLoaded || !deckState.bpm || !otherDeckBPM} color="#aa88ff" size={44} label="Beat Sync — match BPM and phase">SYNC</PremiumBtn>
             <PremiumBtn onClick={() => { pauseDeck(deck); seekDeck(deck, 0) }} disabled={!deckState.isLoaded} color="#556688" size={44} label="Stop">■</PremiumBtn>
             <PremiumBtn
               onClick={deckState.isPlaying ? () => pauseDeck(deck) : () => playDeck(deck)}
@@ -1031,6 +1142,7 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
         <NudgeBtn deck={deck} direction={1} audioEngine={audioEngine} disabled={!deckState.isPlaying} />
       </div>
 
+    </div>
     </div>
   )
 }
