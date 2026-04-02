@@ -713,9 +713,9 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
     const effectiveBPM = deckState.bpm * playbackRate
     const beatInterval = 60 / effectiveBPM
     const beatsFromPhase = (deckState.currentTime - deckState.beatPhase) / beatInterval
-    const totalBeats = Math.max(0, Math.floor(beatsFromPhase))
+    const totalBeats = Math.floor(beatsFromPhase) // may be negative before first downbeat
     const bar = Math.floor(totalBeats / 4) + 1
-    const beat = (totalBeats % 4) + 1
+    const beat = ((totalBeats % 4) + 4) % 4 + 1 // always 1–4
     return `${bar}.${beat}`
   })()
 

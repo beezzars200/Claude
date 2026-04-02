@@ -61,8 +61,8 @@ function detectBeatPhase(buffer: AudioBuffer, bpm: number): number {
   if (bpm <= 0) return -1
   const sampleRate = buffer.sampleRate
   const data = buffer.getChannelData(0)
-  // Only analyze first 30 seconds for speed
-  const analyzeLen = Math.min(data.length, Math.floor(sampleRate * 30))
+  // Analyze first 60s for more reliable bar detection
+  const analyzeLen = Math.min(data.length, Math.floor(sampleRate * 60))
 
   const hop = Math.floor(sampleRate * 0.005)
   const frame = Math.floor(sampleRate * 0.023)
@@ -89,20 +89,23 @@ function detectBeatPhase(buffer: AudioBuffer, bpm: number): number {
   const beatPeriod = Math.round(frameRate * 60 / bpm)
   if (beatPeriod < 1) return -1
 
-  // Accumulate onset strength into phase bins
-  const phaseBins = new Float32Array(beatPeriod)
+  // Accumulate over a full bar period (4 beats) to find the DOWNBEAT.
+  // Single-beat accumulation only finds "a beat" — bar accumulation finds
+  // the highest-energy position within 4 beats, which is beat 1 (the kick/downbeat).
+  const barPeriod = beatPeriod * 4
+  const barBins = new Float32Array(barPeriod)
   for (let i = 0; i < numFrames; i++) {
-    phaseBins[i % beatPeriod] += onset[i]
+    barBins[i % barPeriod] += onset[i]
   }
 
-  // Best phase = argmax
-  let bestPhase = 0
+  // Best bar phase = argmax (= position of strongest onset in 4-beat cycle)
+  let bestBar = 0
   let bestVal = 0
-  for (let p = 0; p < beatPeriod; p++) {
-    if (phaseBins[p] > bestVal) { bestVal = phaseBins[p]; bestPhase = p }
+  for (let p = 0; p < barPeriod; p++) {
+    if (barBins[p] > bestVal) { bestVal = barBins[p]; bestBar = p }
   }
 
-  return (bestPhase * hop) / sampleRate
+  return (bestBar * hop) / sampleRate
 }
 
 function createDeckNodes(ctx: AudioContext, masterGain: GainNode, recorderDest: MediaStreamAudioDestinationNode): DeckNodes {
@@ -837,10 +840,31 @@ export function useAudioEngine() {
   }, [getCurrentTime, setDeckA, setDeckB])
 
   // Toggle loop on/off (preserves loop points)
+  // Anchor startOffset/startTime to the actual modulo position within the loop.
+  // Call this BEFORE disabling loopActive so the tracker doesn't jump.
+  const anchorLoopPosition = (deck: 'A' | 'B') => {
+    const eng = engineRef.current
+    const deckNodes = deck === 'A' ? eng.deckA : eng.deckB
+    if (!deckNodes || !deckNodes.isPlaying || !eng.context) return
+    if (deckNodes.loopEnd <= deckNodes.loopStart) return
+    const elapsed = eng.context.currentTime - deckNodes.startTime
+    const rawTime = deckNodes.startOffset + elapsed * deckNodes.playbackRate
+    const loopLen = deckNodes.loopEnd - deckNodes.loopStart
+    // Wrap into loop range (same logic as the animation loop)
+    const actualPos = deckNodes.loopStart + ((rawTime - deckNodes.loopStart) % loopLen + loopLen) % loopLen
+    deckNodes.startOffset = actualPos
+    deckNodes.startTime = eng.context.currentTime
+  }
+
   const toggleLoop = useCallback((deck: 'A' | 'B') => {
-    const deckNodes = deck === 'A' ? engineRef.current.deckA : engineRef.current.deckB
+    const eng = engineRef.current
+    const deckNodes = deck === 'A' ? eng.deckA : eng.deckB
     if (!deckNodes || !deckNodes.buffer || deckNodes.loopEnd <= deckNodes.loopStart) return
     const next = !deckNodes.loopActive
+    if (!next) {
+      // Deactivating — anchor time ref at actual modulo position so playback continues correctly
+      anchorLoopPosition(deck)
+    }
     deckNodes.loopActive = next
     if (deckNodes.source) {
       deckNodes.source.loop = next
@@ -853,10 +877,11 @@ export function useAudioEngine() {
     setter({ loopActive: next })
   }, [setDeckA, setDeckB])
 
-  // Exit loop — disable loop and continue playing through
+  // Exit loop — disable loop and continue playing from current loop position
   const exitLoop = useCallback((deck: 'A' | 'B') => {
     const deckNodes = deck === 'A' ? engineRef.current.deckA : engineRef.current.deckB
     if (!deckNodes) return
+    anchorLoopPosition(deck)
     deckNodes.loopActive = false
     if (deckNodes.source) deckNodes.source.loop = false
     const setter = deck === 'A' ? setDeckA : setDeckB
