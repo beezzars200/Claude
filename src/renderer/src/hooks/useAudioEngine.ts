@@ -384,6 +384,11 @@ export function useAudioEngine() {
         deckNodes.buffer = audioBuffer
         deckNodes.startOffset = 0
         deckNodes.isPlaying = false
+        // Reset loop and rate state so new track starts clean
+        deckNodes.loopActive = false
+        deckNodes.loopStart = 0
+        deckNodes.loopEnd = 0
+        deckNodes.playbackRate = 1.0
 
         // Accurate BPM detection using onset-strength autocorrelation
         let bpm = 120
@@ -404,6 +409,10 @@ export function useAudioEngine() {
           duration: audioBuffer.duration,
           bpm,
           beatPhase,
+          pitch: 0.5,
+          loopActive: false,
+          loopStart: 0,
+          loopEnd: 0,
           waveform,
           waveformLF,
           waveformMF,
@@ -779,11 +788,12 @@ export function useAudioEngine() {
 
     const myCurrentTime = getCurrentTime(deck)
     const myBeatInterval = 60 / (myState.bpm * clampedRate)
-    const myBeatsFromPhase = (myCurrentTime - myState.beatPhase) / myBeatInterval
-    const myCurrentBeat = Math.floor(myBeatsFromPhase)
-    // Map other deck's phase fraction onto my beat interval
+    // Convert other deck's phase to a fraction (0..1) then to my beat interval
     const otherPhaseFrac = otherPhaseOffset / otherBeatInterval
-    const targetTime = myState.beatPhase + myCurrentBeat * myBeatInterval + otherPhaseFrac * myBeatInterval
+    const targetPhaseInBeat = otherPhaseFrac * myBeatInterval
+    // Find nearest beat grid position k such that (beatPhase + k*interval + targetPhaseInBeat) ≈ myCurrentTime
+    const k = Math.round((myCurrentTime - myState.beatPhase - targetPhaseInBeat) / myBeatInterval)
+    const targetTime = myState.beatPhase + k * myBeatInterval + targetPhaseInBeat
 
     const wasPlaying = deckNodes.isPlaying
     if (wasPlaying) {

@@ -14,8 +14,8 @@ interface MixerProps {
   deckBEQ: { low: number; mid: number; high: number }
   deckAVolume: number
   deckBVolume: number
-  deckAWave: { waveform: Float32Array | null; waveformLF: Float32Array | null; waveformMF: Float32Array | null; waveformHF: Float32Array | null; currentTime: number; duration: number }
-  deckBWave: { waveform: Float32Array | null; waveformLF: Float32Array | null; waveformMF: Float32Array | null; waveformHF: Float32Array | null; currentTime: number; duration: number }
+  deckAWave: { waveform: Float32Array | null; waveformLF: Float32Array | null; waveformMF: Float32Array | null; waveformHF: Float32Array | null; currentTime: number; duration: number; bpm: number; beatPhase: number; pitch: number }
+  deckBWave: { waveform: Float32Array | null; waveformLF: Float32Array | null; waveformMF: Float32Array | null; waveformHF: Float32Array | null; currentTime: number; duration: number; bpm: number; beatPhase: number; pitch: number }
 }
 
 // ----- Vertical Waveform -----
@@ -29,13 +29,15 @@ interface VerticalWaveformProps {
   currentTime: number
   duration: number
   accent: string
+  bpm: number
+  beatPhase: number
+  pitch: number
 }
 
-function VerticalWaveform({ waveform, waveformLF, waveformMF, waveformHF, currentTime, duration, accent }: VerticalWaveformProps) {
+function VerticalWaveform({ waveform, waveformLF, waveformMF, waveformHF, currentTime, duration, accent, bpm, beatPhase, pitch }: VerticalWaveformProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rafRef = useRef<number>(0)
 
-  // Refs to avoid stale closures in the rAF loop
   const currentTimeRef = useRef(currentTime)
   const durationRef = useRef(duration)
   currentTimeRef.current = currentTime
@@ -50,18 +52,43 @@ function VerticalWaveform({ waveform, waveformLF, waveformMF, waveformHF, curren
     const W = canvas.width
     const H = canvas.height
 
-    ctx.fillStyle = '#0a0a14'
+    ctx.fillStyle = '#080812'
     ctx.fillRect(0, 0, W, H)
 
     if (waveform && waveform.length > 0) {
-      const numVisible = 120
-      const barH = H / numVisible
-      const progress = durationRef.current > 0 ? currentTimeRef.current / durationRef.current : 0
-      const centerIdx = Math.floor(progress * waveform.length)
+      const dur = durationRef.current
+      const ct = currentTimeRef.current
 
+      // Dynamic zoom: show a fixed 4-second window centred on playhead
+      const windowSecs = 4
+      const pointsPerSec = dur > 0 ? waveform.length / dur : 10
+      const numVisible = Math.max(10, Math.min(200, Math.round(windowSecs * pointsPerSec)))
+      const barH = H / numVisible
+      const centerIdx = Math.floor((ct / dur) * waveform.length)
+
+      // Draw beat grid lines first (horizontal lines across full width)
+      if (bpm > 0 && beatPhase >= 0 && dur > 0) {
+        const effectiveBpm = bpm * (1.0 + (pitch - 0.5) * 0.32)
+        const beatInterval = 60 / effectiveBpm
+        const pxPerSec = barH * pointsPerSec
+        const halfSec = (numVisible / 2) / pointsPerSec
+        const firstN = Math.ceil((ct - halfSec - beatPhase) / beatInterval)
+        const lastN = Math.floor((ct + halfSec - beatPhase) / beatInterval)
+
+        for (let n = firstN; n <= lastN; n++) {
+          const beatT = beatPhase + n * beatInterval
+          const yOff = (beatT - ct) * pxPerSec
+          const y = Math.floor(H / 2 + yOff)
+          if (y < 0 || y > H) continue
+          const absN = Math.round((beatT - beatPhase) / beatInterval)
+          const isBarLine = absN >= 0 && absN % 4 === 0
+          ctx.fillStyle = isBarLine ? accent + 'aa' : accent + '33'
+          ctx.fillRect(0, y, W, isBarLine ? 2 : 1)
+        }
+      }
+
+      // Draw waveform bars
       for (let i = 0; i < numVisible; i++) {
-        // i=0 is top (past), i=numVisible-1 is bottom (future)
-        // center is at numVisible/2
         const offset = i - numVisible / 2
         const srcIdx = centerIdx + Math.round(offset)
         if (srcIdx < 0 || srcIdx >= waveform.length) continue
@@ -70,7 +97,7 @@ function VerticalWaveform({ waveform, waveformLF, waveformMF, waveformHF, curren
         const lf = waveformLF ? waveformLF[srcIdx] : 0.33
         const mf = waveformMF ? waveformMF[srcIdx] : 0.33
         const hf = waveformHF ? waveformHF[srcIdx] : 0.33
-        const totalW = Math.max(1, amp * W * 0.9)
+        const totalW = Math.max(1, amp * W * 0.88)
         const total = lf + mf + hf + 0.001
         const lfW = (lf / total) * totalW
         const mfW = (mf / total) * totalW
@@ -79,24 +106,20 @@ function VerticalWaveform({ waveform, waveformLF, waveformMF, waveformHF, curren
         const bH = Math.max(1, barH - 0.5)
         const y = i * barH
         const isPast = offset < 0
-        const alpha = isPast ? 0.8 : 0.3
-        // Low: red
-        ctx.fillStyle = `rgba(220,50,50,${alpha})`
+        const alpha = isPast ? 0.85 : 0.28
+        ctx.fillStyle = `rgba(210,50,50,${alpha})`
         ctx.fillRect(barLeft, y, Math.max(1, lfW), bH)
-        // Mid: green
-        ctx.fillStyle = `rgba(0,200,80,${alpha})`
+        ctx.fillStyle = `rgba(0,190,75,${alpha})`
         ctx.fillRect(barLeft + lfW, y, Math.max(1, mfW), bH)
-        // High: blue
-        ctx.fillStyle = `rgba(0,160,255,${alpha})`
+        ctx.fillStyle = `rgba(0,145,255,${alpha})`
         ctx.fillRect(barLeft + lfW + mfW, y, Math.max(1, hfW), bH)
       }
 
-      // Playhead: white 1px horizontal line at H/2
+      // Playhead line
       ctx.fillStyle = accent
-      ctx.fillRect(0, H / 2 - 1, W, 1)
+      ctx.fillRect(0, H / 2 - 1, W, 2)
     } else {
-      // No waveform — draw vertical centre line
-      ctx.strokeStyle = '#2a2a3a'
+      ctx.strokeStyle = '#1e1e2e'
       ctx.lineWidth = 1
       ctx.beginPath()
       ctx.moveTo(W / 2, 0)
@@ -108,7 +131,7 @@ function VerticalWaveform({ waveform, waveformLF, waveformMF, waveformHF, curren
     }
 
     rafRef.current = requestAnimationFrame(draw)
-  }, [waveform, waveformLF, waveformMF, waveformHF, accent])
+  }, [waveform, waveformLF, waveformMF, waveformHF, accent, bpm, beatPhase, pitch])
 
   useEffect(() => {
     rafRef.current = requestAnimationFrame(draw)
@@ -118,9 +141,9 @@ function VerticalWaveform({ waveform, waveformLF, waveformMF, waveformHF, curren
   return (
     <canvas
       ref={canvasRef}
-      width={32}
-      height={200}
-      style={{ width: 32, height: '100%', display: 'block', borderRadius: 4 }}
+      width={44}
+      height={400}
+      style={{ width: 44, height: '100%', display: 'block', borderRadius: 4 }}
     />
   )
 }
@@ -477,7 +500,7 @@ export default function Mixer({
           onVolChange={(v) => setDeckVolume('A', v)}
         />
 
-        <div style={{ flex: '0 0 32px', alignSelf: 'stretch' }}>
+        <div style={{ flex: '0 0 44px', alignSelf: 'stretch' }}>
           <VerticalWaveform
             deck="A"
             waveform={deckAWave.waveform}
@@ -486,7 +509,10 @@ export default function Mixer({
             waveformHF={deckAWave.waveformHF}
             currentTime={deckAWave.currentTime}
             duration={deckAWave.duration}
-            accent="#00ff88"
+            accent="#00ff99"
+            bpm={deckAWave.bpm}
+            beatPhase={deckAWave.beatPhase}
+            pitch={deckAWave.pitch}
           />
         </div>
 
@@ -501,7 +527,7 @@ export default function Mixer({
           <div style={{ fontSize: 9, color: '#e0e0f0' }}>{Math.round(masterVolume * 100)}%</div>
         </div>
 
-        <div style={{ flex: '0 0 32px', alignSelf: 'stretch' }}>
+        <div style={{ flex: '0 0 44px', alignSelf: 'stretch' }}>
           <VerticalWaveform
             deck="B"
             waveform={deckBWave.waveform}
@@ -510,7 +536,10 @@ export default function Mixer({
             waveformHF={deckBWave.waveformHF}
             currentTime={deckBWave.currentTime}
             duration={deckBWave.duration}
-            accent="#0088ff"
+            accent="#0099ff"
+            bpm={deckBWave.bpm}
+            beatPhase={deckBWave.beatPhase}
+            pitch={deckBWave.pitch}
           />
         </div>
 
