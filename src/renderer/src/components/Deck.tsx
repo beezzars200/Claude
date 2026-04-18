@@ -32,13 +32,132 @@ interface DeckProps {
 }
 
 const ACCENT = { A: '#00ff99', B: '#0099ff' }
-const BG = { A: '#030308', B: '#030308' }
+const BG = { A: '#070710', B: '#070710' }
+const HOT_CUE_COLORS = ['#ff3355', '#2299ff', '#ffaa00', '#cc44ff']
 
 function formatTime(seconds: number): string {
   if (!seconds || isNaN(seconds)) return '0:00'
   const m = Math.floor(seconds / 60)
   const s = Math.floor(seconds % 60)
   return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+// ----- Jog Wheel -----
+
+function JogWheel({ isPlaying, currentTime, accent, deck }: {
+  isPlaying: boolean; currentTime: number; accent: string; deck: 'A' | 'B'
+}) {
+  const SIZE = 130, OUTER_R = 63, RING_W = 13
+  const PLATTER_R = OUTER_R - RING_W, CENTER_R = 24
+  const angle = (currentTime * 198) % 360
+  const glowClass = isPlaying ? (deck === 'A' ? 'jog-playing-a' : 'jog-playing-b') : undefined
+  return (
+    <div className={glowClass} style={{ position: 'relative', width: SIZE, height: SIZE, flexShrink: 0, borderRadius: '50%' }}>
+      <svg width={SIZE} height={SIZE} style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
+        <defs>
+          <radialGradient id={`og-${deck}`} cx="38%" cy="32%"><stop offset="0%" stopColor="#282838" /><stop offset="100%" stopColor="#12121e" /></radialGradient>
+          <radialGradient id={`pg-${deck}`} cx="40%" cy="35%"><stop offset="0%" stopColor="#1a1a2a" /><stop offset="100%" stopColor="#090912" /></radialGradient>
+        </defs>
+        <circle cx={SIZE/2} cy={SIZE/2} r={OUTER_R} fill={`url(#og-${deck})`} stroke={isPlaying ? accent + '66' : '#252538'} strokeWidth="2" />
+        {Array.from({ length: 60 }, (_, i) => {
+          const a = (i / 60) * Math.PI * 2, bright = i % 5 === 0
+          return <line key={i}
+            x1={SIZE/2 + Math.cos(a)*(PLATTER_R+2)} y1={SIZE/2 + Math.sin(a)*(PLATTER_R+2)}
+            x2={SIZE/2 + Math.cos(a)*(OUTER_R-1)}   y2={SIZE/2 + Math.sin(a)*(OUTER_R-1)}
+            stroke={bright ? '#3c3c54' : '#1e1e2c'} strokeWidth={bright ? 2 : 1.5} />
+        })}
+        <circle cx={SIZE/2} cy={SIZE/2} r={PLATTER_R} fill={`url(#pg-${deck})`} stroke="#161624" strokeWidth="1" />
+      </svg>
+      <div style={{
+        position: 'absolute', top: SIZE/2-PLATTER_R, left: SIZE/2-PLATTER_R,
+        width: PLATTER_R*2, height: PLATTER_R*2, borderRadius: '50%',
+        zIndex: 2, pointerEvents: 'none', transform: `rotate(${angle}deg)`, willChange: 'transform'
+      }}>
+        <svg width={PLATTER_R*2} height={PLATTER_R*2}>
+          {[0.88, 0.74, 0.60].map((r, i) => <circle key={i} cx={PLATTER_R} cy={PLATTER_R} r={PLATTER_R*r} fill="none" stroke="#13131e" strokeWidth="1" />)}
+          <line x1={PLATTER_R} y1={CENTER_R+4} x2={PLATTER_R} y2={PLATTER_R-CENTER_R-4} stroke={accent} strokeWidth="2.5" strokeLinecap="round" />
+          <circle cx={PLATTER_R} cy={CENTER_R+7} r={3} fill={accent} />
+        </svg>
+      </div>
+      <div style={{
+        position: 'absolute', top: SIZE/2-CENTER_R, left: SIZE/2-CENTER_R,
+        width: CENTER_R*2, height: CENTER_R*2, borderRadius: '50%', zIndex: 3,
+        background: 'radial-gradient(circle at 35% 30%, #22223a, #080812)',
+        border: `1.5px solid ${accent}44`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxShadow: `inset 0 2px 8px rgba(0,0,0,0.95)${isPlaying ? `, 0 0 10px ${accent}44` : ''}`
+      }}>
+        <span style={{ fontFamily: 'monospace', fontSize: 15, fontWeight: 900, color: accent, textShadow: `0 0 8px ${accent}99` }}>{deck}</span>
+      </div>
+    </div>
+  )
+}
+
+// ----- LED Hardware Display -----
+
+function LedDisplay({ value, accent, label, size = 'lg' }: { value: string; accent: string; label: string; size?: 'sm' | 'lg' }) {
+  const isLg = size === 'lg'
+  return (
+    <div style={{
+      background: '#030307', border: `1px solid ${accent}1e`, borderRadius: 6,
+      padding: isLg ? '5px 12px 4px' : '3px 8px 3px',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
+      boxShadow: `inset 0 2px 12px rgba(0,0,0,0.95), 0 0 10px ${accent}0a`, flexShrink: 0
+    }}>
+      <div style={{
+        fontFamily: '"Courier New", Courier, monospace', fontWeight: 700, lineHeight: 1,
+        fontSize: isLg ? 26 : 16, letterSpacing: '0.1em',
+        color: accent, textShadow: `0 0 8px ${accent}aa, 0 0 18px ${accent}33`
+      }}>{value || (isLg ? '---' : '--')}</div>
+      <div style={{ fontSize: 7, color: '#333355', letterSpacing: '0.16em', fontWeight: 700 }}>{label}</div>
+    </div>
+  )
+}
+
+// ----- Beat LEDs -----
+
+function BeatLEDs({ beat, accent }: { beat: number; accent: string }) {
+  return (
+    <div style={{ display: 'flex', gap: 5, alignItems: 'center', flexShrink: 0 }}>
+      {[1,2,3,4].map(b => {
+        const on = b === beat, isBar = b === 1
+        return <div key={b} style={{
+          width: isBar ? 10 : 7, height: isBar ? 10 : 7, borderRadius: '50%',
+          background: on ? (isBar ? accent : accent+'cc') : (isBar ? accent+'1e' : accent+'12'),
+          boxShadow: on ? `0 0 ${isBar?12:8}px ${accent}${isBar?'dd':'88'}` : 'none',
+          transition: 'background 0.04s, box-shadow 0.04s', flexShrink: 0
+        }} />
+      })}
+    </div>
+  )
+}
+
+// ----- Hot Cue Pads -----
+
+function HotCuePads({ disabled, currentTime, seekDeck, deck }: {
+  disabled: boolean; currentTime: number; seekDeck: (d: 'A'|'B', t: number) => void; deck: 'A'|'B'
+}) {
+  const [cues, setCues] = useState<(number|null)[]>([null,null,null,null])
+  return (
+    <div style={{ display: 'flex', gap: 4, flex: 1 }}>
+      {HOT_CUE_COLORS.map((color, i) => {
+        const has = cues[i] !== null
+        return <button key={i} disabled={disabled}
+          onClick={() => has ? seekDeck(deck, cues[i]!) : setCues(p => { const n=[...p]; n[i]=currentTime; return n })}
+          onContextMenu={e => { e.preventDefault(); if(has) setCues(p => { const n=[...p]; n[i]=null; return n }) }}
+          title={has ? `Jump to cue ${i+1} • right-click to clear` : `Set cue ${i+1}`}
+          style={{
+            flex: 1, height: 28, borderRadius: 5,
+            border: `1px solid ${has ? color+'cc' : color+'33'}`,
+            background: has ? `linear-gradient(145deg,${color}cc,${color}77)` : 'linear-gradient(145deg,#12121e,#0a0a16)',
+            color: has ? '#060610' : color+'aa',
+            fontSize: 11, fontWeight: 900, letterSpacing: '0.06em',
+            cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.3 : 1,
+            boxShadow: has ? `0 0 12px ${color}55, inset 0 1px 0 rgba(255,255,255,0.18)` : 'none',
+            transition: 'all 0.1s'
+          }}>{i+1}</button>
+      })}
+    </div>
+  )
 }
 
 // ----- Knob -----
@@ -708,182 +827,145 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
   const displayBPM = rawBPM > 0 ? Math.round(rawBPM).toString() : null
 
   // Bar:Beat position (e.g. "3.2" = bar 3, beat 2)
-  const barBeatDisplay = (() => {
-    if (deckState.bpm <= 0 || deckState.beatPhase < 0) return null
+  const { barBeatDisplay, currentBeat } = (() => {
+    if (deckState.bpm <= 0 || deckState.beatPhase < 0) return { barBeatDisplay: null, currentBeat: 0 }
     const effectiveBPM = deckState.bpm * playbackRate
     const beatInterval = 60 / effectiveBPM
     const beatsFromPhase = (deckState.currentTime - deckState.beatPhase) / beatInterval
-    const totalBeats = Math.floor(beatsFromPhase) // may be negative before first downbeat
+    const totalBeats = Math.floor(beatsFromPhase)
     const bar = Math.floor(totalBeats / 4) + 1
-    const beat = ((totalBeats % 4) + 4) % 4 + 1 // always 1–4
-    return `${bar}.${beat}`
+    const beat = ((totalBeats % 4) + 4) % 4 + 1
+    return { barBeatDisplay: `${bar}.${beat}`, currentBeat: beat }
   })()
 
   const remaining = Math.max(0, deckState.duration - deckState.currentTime)
 
   const otherDeckBPM = useStore((s) => (deck === 'A' ? s.deckB : s.deckA).bpm)
 
+  const deckPlayingClass = deckState.isPlaying ? (deck === 'A' ? 'deck-playing-a' : 'deck-playing-b') : undefined
+  const ledStripClass = deckState.isPlaying ? (deck === 'A' ? 'led-strip-playing-a' : 'led-strip-playing-b') : undefined
+
+  // shared art panel
+  const artPanel = (
+    <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center' }}>
+      <div style={{ background: accent, color: '#060610', borderRadius: 5, padding: '2px 10px', fontSize: 11, fontWeight: 900, letterSpacing: '0.12em', alignSelf: 'stretch', textAlign: 'center' }}>
+        DECK {deck}
+      </div>
+      <div style={{ width: 64, height: 64, borderRadius: 8, overflow: 'hidden', border: `1px solid ${accent}44`, background: '#06060e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {deckState.albumArt
+          ? <img src={deckState.albumArt} alt="art" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          : <span style={{ fontSize: 28, fontWeight: 900, color: accent+'28', fontFamily: 'Georgia,serif', userSelect: 'none' }}>♫</span>
+        }
+      </div>
+    </div>
+  )
+
+  // shared LED display group
+  const displayGroup = (
+    <div style={{ display: 'flex', gap: 5, alignItems: 'stretch', flexShrink: 0 }}>
+      <LedDisplay value={displayBPM || '---'} accent={accent} label="BPM" size="lg" />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        <LedDisplay value={formatTime(deckState.currentTime)} accent={accent} label="ELAPSED" size="sm" />
+        <LedDisplay value={barBeatDisplay || '-.-'} accent={accent} label="BAR.BEAT" size="sm" />
+      </div>
+    </div>
+  )
+
   return (
-    <div style={{
-      background: 'linear-gradient(180deg, #111120 0%, #0d0d18 100%)',
-      border: `1px solid ${deckState.isPlaying ? accent + '55' : '#1e1e30'}`,
-      borderRadius: 12,
-      padding: '0 0 12px 0',
-      display: 'flex',
-      flexDirection: 'column',
-      flex: 1,
-      gap: 0,
-      transition: 'border-color 0.3s',
+    <div className={deckPlayingClass} style={{
+      background: 'linear-gradient(180deg, #0e0e1c 0%, #09090f 100%)',
+      border: `1px solid ${deckState.isPlaying ? accent + '44' : '#181826'}`,
+      borderRadius: 14, padding: '0 0 10px 0',
+      display: 'flex', flexDirection: 'column', flex: 1, gap: 0,
       overflow: 'hidden',
-      boxShadow: deckState.isPlaying ? `0 0 20px ${accent}18` : '0 2px 12px rgba(0,0,0,0.6)'
+      boxShadow: deckState.isPlaying ? `0 0 28px ${accent}1a, 0 4px 20px rgba(0,0,0,0.8)` : '0 4px 20px rgba(0,0,0,0.7)'
     }}>
-      {/* LED accent strip at top when playing */}
-      <div style={{
+      {/* ── LED TOP STRIP ── */}
+      <div className={ledStripClass} style={{
         height: deckState.isPlaying ? 3 : 2,
         background: deckState.isPlaying
-          ? `linear-gradient(90deg, transparent, ${accent}cc 20%, ${accent} 50%, ${accent}cc 80%, transparent)`
-          : `linear-gradient(90deg, transparent, #2a2a3a 50%, transparent)`,
-        borderRadius: '12px 12px 0 0',
-        transition: 'all 0.3s',
-        marginBottom: 10,
-        flexShrink: 0
+          ? `linear-gradient(90deg, transparent 0%, ${accent}55 10%, ${accent} 50%, ${accent}55 90%, transparent 100%)`
+          : `linear-gradient(90deg, transparent, #1e1e2e 50%, transparent)`,
+        borderRadius: '14px 14px 0 0',
+        boxShadow: deckState.isPlaying ? `0 0 14px ${accent}88` : 'none',
+        marginBottom: 8, flexShrink: 0, transition: 'height 0.3s'
       }} />
-      <div style={{ padding: '0 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
 
-      {/* ── ROW 1: Info bar ── */}
-      <div style={{ display: 'flex', flexDirection: 'row', gap: 10, alignItems: 'stretch' }}>
+      <div style={{ padding: '0 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
 
-        {/* Deck A: Art panel on LEFT */}
-        {deck === 'A' && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ background: accent, color: '#0a0a10', borderRadius: 4, padding: '2px 8px', fontSize: 11, fontWeight: 800, letterSpacing: '0.1em' }}>
-                DECK A
-              </div>
-              {displayBPM && (
-                <div style={{ fontSize: 10, color: '#8888aa' }}>
-                  <span style={{ color: accent, fontWeight: 700 }}>{displayBPM}</span>
-                  <span style={{ marginLeft: 2 }}>BPM</span>
-                  {barBeatDisplay && <span style={{ marginLeft: 6, color: accent + '77', fontFamily: 'monospace' }}>{barBeatDisplay}</span>}
-                </div>
-              )}
-            </div>
-            <div style={{ width: 90, height: 90, borderRadius: 8, overflow: 'hidden', border: `1px solid ${accent}44`, background: '#080812', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              {deckState.albumArt
-                ? <img src={deckState.albumArt} alt="art" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : <span style={{ fontSize: 42, fontWeight: 900, color: accent + '30', fontFamily: 'Georgia, serif', userSelect: 'none' }}>K</span>
-              }
-            </div>
-          </div>
-        )}
-
-        {/* Deck B: Tempo slider on LEFT */}
-        {deck === 'B' && (
-          <VerticalTempoSlider value={deckState.pitch} onChange={(v) => audioEngine.setPitch(deck, v)} accent={accent} height={110} />
-        )}
-
-        {/* Track name / drop zone — centre, flex:1 */}
+      {/* ── ROW 1: Info ── */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        {deck === 'A' && artPanel}
+        {/* Track drop zone */}
         <div
           onDrop={handleDrop}
           onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
           onDragLeave={() => setIsDragOver(false)}
           style={{
             flex: 1, minWidth: 0,
-            border: `1px dashed ${isDragOver ? accent : (deckState.track ? accent + '22' : '#3a3a5a')}`,
-            borderRadius: 8, padding: '8px 14px',
-            background: isDragOver ? `${accent}10` : (deckState.track ? `${accent}06` : '#0c0c18'),
-            transition: 'all 0.15s',
-            display: 'flex', flexDirection: 'column', justifyContent: 'center',
-            minHeight: 90
+            border: `1px dashed ${isDragOver ? accent : (deckState.track ? accent+'22' : '#2a2a3e')}`,
+            borderRadius: 8, padding: '8px 12px',
+            background: isDragOver ? accent+'0e' : (deckState.track ? accent+'06' : '#0a0a14'),
+            transition: 'all 0.15s', display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: 74
           }}
         >
           {deckState.track ? (
             <>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#e8e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.4 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#eaeaf8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.35 }}>
                 {deckState.track.title ?? deckState.track.name}
               </div>
               {deckState.track.artist && (
-                <div style={{ fontSize: 12, color: '#8888aa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 3 }}>
+                <div style={{ fontSize: 11, color: '#6666aa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 3 }}>
                   {deckState.track.artist}
                 </div>
               )}
             </>
           ) : (
-            <div style={{ fontSize: 12, color: isDragOver ? accent : '#3a3a5a', textAlign: 'center' }}>
+            <div style={{ fontSize: 12, color: isDragOver ? accent : '#2e2e48', textAlign: 'center' }}>
               Drop track → Deck {deck}
             </div>
           )}
         </div>
-
-        {/* Deck A: Tempo slider on RIGHT */}
-        {deck === 'A' && (
-          <VerticalTempoSlider value={deckState.pitch} onChange={(v) => audioEngine.setPitch(deck, v)} accent={accent} height={110} />
-        )}
-
-        {/* Deck B: Art panel on RIGHT */}
-        {deck === 'B' && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ background: accent, color: '#0a0a10', borderRadius: 4, padding: '2px 8px', fontSize: 11, fontWeight: 800, letterSpacing: '0.1em' }}>
-                DECK B
-              </div>
-              {displayBPM && (
-                <div style={{ fontSize: 10, color: '#8888aa' }}>
-                  <span style={{ color: accent, fontWeight: 700 }}>{displayBPM}</span>
-                  <span style={{ marginLeft: 2 }}>BPM</span>
-                  {barBeatDisplay && <span style={{ marginLeft: 6, color: accent + '77', fontFamily: 'monospace' }}>{barBeatDisplay}</span>}
-                </div>
-              )}
-            </div>
-            <div style={{ width: 90, height: 90, borderRadius: 8, overflow: 'hidden', border: `1px solid ${accent}44`, background: '#080812', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              {deckState.albumArt
-                ? <img src={deckState.albumArt} alt="art" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : <span style={{ fontSize: 42, fontWeight: 900, color: accent + '30', fontFamily: 'Georgia, serif', userSelect: 'none' }}>K</span>
-              }
-            </div>
-          </div>
-        )}
+        {displayGroup}
+        {deck === 'B' && artPanel}
       </div>
 
-      {/* ── ROW 2: Waveform + time + scrubber ── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-        <canvas
-          ref={topCanvasRef}
-          width={1200}
-          height={200}
-          style={{ width: '100%', height: 92, borderRadius: 6, cursor: deckState.isLoaded ? 'crosshair' : 'default', display: 'block' }}
-          onClick={handleSeek}
-        />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, fontFamily: 'monospace', color: accent, letterSpacing: 1, flexShrink: 0 }}>
-            {formatTime(deckState.currentTime)}
+      {/* ── ROW 2: Waveform ── */}
+      <canvas
+        ref={topCanvasRef}
+        width={1200} height={220}
+        style={{ width: '100%', height: 110, borderRadius: 7, cursor: deckState.isLoaded ? 'crosshair' : 'default', display: 'block', border: `1px solid ${accent}18` }}
+        onClick={handleSeek}
+      />
+
+      {/* ── ROW 3: Scrubber ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, fontFamily: 'monospace', color: accent, letterSpacing: 1, flexShrink: 0 }}>{formatTime(deckState.currentTime)}</span>
+        <Scrubber value={deckState.currentTime} max={deckState.duration} onChange={(v) => seekDeck(deck, v)} accent={accent} />
+        <span style={{ fontSize: 11, color: '#3a3a5a', fontFamily: 'monospace', flexShrink: 0 }}>-{formatTime(remaining)}</span>
+      </div>
+
+      {/* ── ROW 4: Jog Wheel + Tempo Slider + Controls ── */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+        {deck === 'A' && <JogWheel isPlaying={deckState.isPlaying} currentTime={deckState.currentTime} accent={accent} deck={deck} />}
+        <VerticalTempoSlider value={deckState.pitch} onChange={(v) => audioEngine.setPitch(deck, v)} accent={accent} height={118} />
+        {/* Right column: beat LEDs, hot cues, filters */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
+          {/* Beat LEDs + Hot cues */}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <BeatLEDs beat={currentBeat} accent={accent} />
+            <HotCuePads disabled={!deckState.isLoaded} currentTime={deckState.currentTime} seekDeck={seekDeck} deck={deck} />
           </div>
-          <Scrubber value={deckState.currentTime} max={deckState.duration} onChange={(v) => seekDeck(deck, v)} accent={accent} />
-          <div style={{ fontSize: 12, color: '#5a5a7a', fontFamily: 'monospace', flexShrink: 0 }}>
-            -{formatTime(remaining)}
+          {/* Separator */}
+          <div style={{ height: 1, background: `${accent}14`, borderRadius: 1 }} />
+          {/* Filters */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 8, color: '#333355', letterSpacing: '0.1em', fontWeight: 700, flexShrink: 0 }}>FILTER</span>
+            <FilterKnob type="lp" value={lpfValue} onChange={v => { setLpfValue(v); audioEngine.setFilter(deck, 'lp', v) }} accent={accent} />
+            <FilterKnob type="hp" value={hpfValue} onChange={v => { setHpfValue(v); audioEngine.setFilter(deck, 'hp', v) }} accent={accent} />
           </div>
         </div>
-      </div>
-
-      {/* ── ROW 2.5: Filters ── */}
-      <div style={{
-        display: 'flex', flexDirection: 'row', alignItems: 'center',
-        gap: 10, paddingTop: 2,
-        justifyContent: deck === 'A' ? 'flex-start' : 'flex-end'
-      }}>
-        <div style={{ fontSize: 9, color: '#444466', letterSpacing: '0.1em', fontWeight: 700 }}>FILTER</div>
-        <FilterKnob
-          type="lp"
-          value={lpfValue}
-          onChange={v => { setLpfValue(v); audioEngine.setFilter(deck, 'lp', v) }}
-          accent={accent}
-        />
-        <FilterKnob
-          type="hp"
-          value={hpfValue}
-          onChange={v => { setHpfValue(v); audioEngine.setFilter(deck, 'hp', v) }}
-          accent={accent}
-        />
+        {deck === 'B' && <JogWheel isPlaying={deckState.isPlaying} currentTime={deckState.currentTime} accent={accent} deck={deck} />}
       </div>
 
       {/* ── ROW 3: Effects ── */}
@@ -1105,44 +1187,25 @@ export default function Deck({ deck, audioEngine }: DeckProps) {
         )
       })()}
 
-      {/* ── ROW 5: Transport + Nudge ── */}
-      <div style={{
-        display: 'flex',
-        flexDirection: 'row',
-        gap: 6,
-        alignItems: 'center',
-        justifyContent: deck === 'A' ? 'flex-start' : 'flex-end',
-        paddingTop: 6
-      }}>
+      {/* ── TRANSPORT ── */}
+      <div style={{ display: 'flex', gap: 5, alignItems: 'center', justifyContent: deck === 'A' ? 'flex-start' : 'flex-end', paddingTop: 4 }}>
         <NudgeBtn deck={deck} direction={-1} audioEngine={audioEngine} disabled={!deckState.isPlaying} />
-        {deck === 'A' && (
-          <>
-            <PremiumBtn onClick={() => cueDeck(deck)} disabled={!deckState.isLoaded} color="#ccaa00" size={44} label="CUE">CUE</PremiumBtn>
-            <PremiumBtn
-              onClick={deckState.isPlaying ? () => pauseDeck(deck) : () => playDeck(deck)}
-              disabled={!deckState.isLoaded} active={deckState.isPlaying}
-              color={accent} size={44} label={deckState.isPlaying ? 'Pause' : 'Play'}
-            >{deckState.isPlaying ? '⏸' : '▶'}</PremiumBtn>
-            <PremiumBtn onClick={() => { pauseDeck(deck); seekDeck(deck, 0) }} disabled={!deckState.isLoaded} color="#556688" size={44} label="Stop">■</PremiumBtn>
-            <PremiumBtn onClick={() => audioEngine.beatSync(deck)} disabled={!deckState.isLoaded || !deckState.bpm || !otherDeckBPM} color="#aa88ff" size={44} label="Beat Sync — match BPM and phase">SYNC</PremiumBtn>
-          </>
-        )}
-        {deck === 'B' && (
-          <>
-            <PremiumBtn onClick={() => audioEngine.beatSync(deck)} disabled={!deckState.isLoaded || !deckState.bpm || !otherDeckBPM} color="#aa88ff" size={44} label="Beat Sync — match BPM and phase">SYNC</PremiumBtn>
-            <PremiumBtn onClick={() => { pauseDeck(deck); seekDeck(deck, 0) }} disabled={!deckState.isLoaded} color="#556688" size={44} label="Stop">■</PremiumBtn>
-            <PremiumBtn
-              onClick={deckState.isPlaying ? () => pauseDeck(deck) : () => playDeck(deck)}
-              disabled={!deckState.isLoaded} active={deckState.isPlaying}
-              color={accent} size={44} label={deckState.isPlaying ? 'Pause' : 'Play'}
-            >{deckState.isPlaying ? '⏸' : '▶'}</PremiumBtn>
-            <PremiumBtn onClick={() => cueDeck(deck)} disabled={!deckState.isLoaded} color="#ccaa00" size={44} label="CUE">CUE</PremiumBtn>
-          </>
-        )}
+        {deck === 'A' && <>
+          <PremiumBtn onClick={() => cueDeck(deck)} disabled={!deckState.isLoaded} color="#ddbb00" size={48} label="CUE">CUE</PremiumBtn>
+          <PremiumBtn onClick={deckState.isPlaying ? () => pauseDeck(deck) : () => playDeck(deck)} disabled={!deckState.isLoaded} active={deckState.isPlaying} color={accent} size={52} label={deckState.isPlaying ? 'Pause' : 'Play'}>{deckState.isPlaying ? '⏸' : '▶'}</PremiumBtn>
+          <PremiumBtn onClick={() => { pauseDeck(deck); seekDeck(deck, 0) }} disabled={!deckState.isLoaded} color="#445566" size={48} label="Stop">■</PremiumBtn>
+          <PremiumBtn onClick={() => audioEngine.beatSync(deck)} disabled={!deckState.isLoaded || !deckState.bpm || !otherDeckBPM} color="#9966ff" size={48} label="Beat Sync">SYNC</PremiumBtn>
+        </>}
+        {deck === 'B' && <>
+          <PremiumBtn onClick={() => audioEngine.beatSync(deck)} disabled={!deckState.isLoaded || !deckState.bpm || !otherDeckBPM} color="#9966ff" size={48} label="Beat Sync">SYNC</PremiumBtn>
+          <PremiumBtn onClick={() => { pauseDeck(deck); seekDeck(deck, 0) }} disabled={!deckState.isLoaded} color="#445566" size={48} label="Stop">■</PremiumBtn>
+          <PremiumBtn onClick={deckState.isPlaying ? () => pauseDeck(deck) : () => playDeck(deck)} disabled={!deckState.isLoaded} active={deckState.isPlaying} color={accent} size={52} label={deckState.isPlaying ? 'Pause' : 'Play'}>{deckState.isPlaying ? '⏸' : '▶'}</PremiumBtn>
+          <PremiumBtn onClick={() => cueDeck(deck)} disabled={!deckState.isLoaded} color="#ddbb00" size={48} label="CUE">CUE</PremiumBtn>
+        </>}
         <NudgeBtn deck={deck} direction={1} audioEngine={audioEngine} disabled={!deckState.isPlaying} />
       </div>
 
-    </div>
+      </div>
     </div>
   )
 }
