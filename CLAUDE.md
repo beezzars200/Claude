@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is a new, largely empty repository named **Claude** owned by `beezzars200`. As of the initial commit, it contains only a minimal `README.md`. There is no build system, test suite, or application code yet.
+This is a personal code library for `beezzars200` — a store of tested, working code snippets, functions, integrations, and templates that can be reused across other projects. Code added here has been verified to work and is saved to avoid repeating the same development/testing effort.
 
 ## Branch Conventions
 
