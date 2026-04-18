@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Scan — <%= event.name %></title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    :root {
+      --primary: <%= event.primary_color %>;
+      --accent: <%= event.accent_color %>;
+      --secondary: <%= event.secondary_color %>;
+    }
+  </style>
+</head>
+<body class="scanner-page">
+  <header class="scanner-header" style="background: var(--primary)">
+    <a href="/events" class="back-link">← Events</a>
+    <div class="scanner-event-info">
+      <% if (event.logo_url) { %><img src="<%= event.logo_url %>" alt="" class="scanner-logo"><% } %>
+      <div>
+        <h1><%= event.name %></h1>
+        <p><%= event.org_name %></p>
+      </div>
+    </div>
+  </header>
+
+  <main class="scanner-main">
+    <div id="reader-container">
+      <div id="reader"></div>
+      <div class="scanner-overlay">
+        <div class="scanner-frame"></div>
+        <p class="scanner-hint">Point camera at QR code</p>
+      </div>
+    </div>
+
+    <div id="result" class="result hidden">
+      <div class="result-icon" id="result-icon"></div>
+      <h2 id="result-name"></h2>
+      <p id="result-company"></p>
+      <p id="result-message"></p>
+      <p id="result-time" class="result-time"></p>
+      <button id="scan-again" class="btn btn-primary">Scan Next</button>
+    </div>
+  </main>
+
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script>
+    const EVENT_SLUG = '<%= event.slug %>';
+    const BASE_URL = '<%= process.env.BASE_URL || "" %>';
+  </script>
+  <script src="/js/scanner.js"></script>
+</body>
+</html>

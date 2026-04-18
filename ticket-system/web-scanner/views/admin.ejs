@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — UMN Tickets</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body class="admin-page">
+  <header class="admin-header">
+    <h1>UMN Tickets — Admin</h1>
+    <div class="admin-nav">
+      <span>Logged in as <strong><%= username %></strong></span>
+      <a href="/auth/logout" class="btn btn-sm">Logout</a>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="stats-row">
+      <div class="stat-card">
+        <span class="stat-number"><%= events.length %></span>
+        <span class="stat-label">Total Events</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-number"><%= events.reduce((s, e) => s + (e.total_tickets || 0), 0) %></span>
+        <span class="stat-label">Total Tickets</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-number"><%= events.reduce((s, e) => s + (e.scanned_tickets || 0), 0) %></span>
+        <span class="stat-label">Scanned</span>
+      </div>
+    </div>
+
+    <section>
+      <h2>Events</h2>
+      <% if (!events.length) { %>
+        <p>No events yet. Create one using the Electron admin app.</p>
+      <% } else { %>
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Event</th>
+              <th>Organisation</th>
+              <th>Date</th>
+              <th>Tickets</th>
+              <th>Scanned</th>
+              <th>Scanner Link</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% events.forEach(e => { %>
+              <tr>
+                <td><%= e.name %></td>
+                <td><%= e.org_name %></td>
+                <td><%= new Date(e.event_date).toLocaleDateString('en-GB') %></td>
+                <td><%= e.total_tickets || 0 %></td>
+                <td><%= e.scanned_tickets || 0 %></td>
+                <td><a href="/events/<%= e.slug %>/scan" target="_blank">/events/<%= e.slug %>/scan</a></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      <% } %>
+    </section>
+  </main>
+</body>
+</html>

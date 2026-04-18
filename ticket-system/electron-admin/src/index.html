@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; script-src 'self'; style-src 'self' 'unsafe-inline';">
+  <title>UMN Ticket Admin</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <h1>UMN Tickets</h1>
+        <p>Admin</p>
+      </div>
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-view="dashboard">Dashboard</button>
+        <button class="nav-item" data-view="organisations">Organisations</button>
+        <button class="nav-item" data-view="events">Events</button>
+        <button class="nav-item" data-view="import">Import CSV</button>
+        <button class="nav-item" data-view="generate">Generate Tickets</button>
+      </nav>
+      <div class="sidebar-settings">
+        <button class="nav-item" data-view="settings">Settings</button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+      <!-- Dashboard -->
+      <section id="view-dashboard" class="view active">
+        <div class="view-header"><h2>Dashboard</h2></div>
+        <div class="stats-row" id="dashboard-stats">
+          <div class="stat-card"><span class="stat-number" id="stat-events">—</span><span class="stat-label">Events</span></div>
+          <div class="stat-card"><span class="stat-number" id="stat-tickets">—</span><span class="stat-label">Total Tickets</span></div>
+          <div class="stat-card"><span class="stat-number" id="stat-scanned">—</span><span class="stat-label">Scanned</span></div>
+        </div>
+        <div id="dashboard-events-list" class="card-list"></div>
+      </section>
+
+      <!-- Organisations -->
+      <section id="view-organisations" class="view">
+        <div class="view-header">
+          <h2>Organisations</h2>
+          <button class="btn btn-primary" id="show-add-org">+ Add Organisation</button>
+        </div>
+        <div id="org-form-container" class="form-card hidden">
+          <h3>New Organisation</h3>
+          <div class="form-group"><label>Organisation Name</label><input type="text" id="org-name" placeholder="e.g. Grattan United FC"></div>
+          <div class="form-group"><label>Slug (URL-friendly)</label><input type="text" id="org-slug" placeholder="e.g. grattan-united"></div>
+          <div class="form-row">
+            <div class="form-group"><label>Primary Colour</label><input type="color" id="org-primary" value="#1a1a2e"></div>
+            <div class="form-group"><label>Accent Colour</label><input type="color" id="org-accent" value="#e94560"></div>
+            <div class="form-group"><label>Text Colour</label><input type="color" id="org-secondary" value="#ffffff"></div>
+          </div>
+          <div class="form-group">
+            <label>Logo</label>
+            <div class="file-pick-row">
+              <button class="btn btn-sm" id="pick-org-logo">Choose Image</button>
+              <span id="org-logo-name" class="file-name">No file chosen</span>
+            </div>
+            <img id="org-logo-preview" class="logo-preview hidden" alt="Logo preview">
+            <input type="hidden" id="org-logo-data">
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" id="save-org">Save Organisation</button>
+            <button class="btn" id="cancel-org">Cancel</button>
+          </div>
+        </div>
+        <div id="orgs-list" class="card-list"></div>
+      </section>
+
+      <!-- Events -->
+      <section id="view-events" class="view">
+        <div class="view-header">
+          <h2>Events</h2>
+          <button class="btn btn-primary" id="show-add-event">+ Add Event</button>
+        </div>
+        <div id="event-form-container" class="form-card hidden">
+          <h3>New Event</h3>
+          <div class="form-group"><label>Organisation</label><select id="event-org"></select></div>
+          <div class="form-group"><label>Event Name</label><input type="text" id="event-name" placeholder="e.g. Annual Club Gala 2025"></div>
+          <div class="form-row">
+            <div class="form-group"><label>Date</label><input type="date" id="event-date"></div>
+            <div class="form-group"><label>Time</label><input type="text" id="event-time" placeholder="e.g. 7:00 PM"></div>
+          </div>
+          <div class="form-group"><label>Venue</label><input type="text" id="event-venue" placeholder="e.g. The Grand Ballroom, Dublin"></div>
+          <div class="form-group"><label>Slug (URL path)</label><input type="text" id="event-slug" placeholder="auto-generated"></div>
+          <div class="form-row">
+            <div class="form-group"><label>Primary Colour</label><input type="color" id="event-primary" value="#1a1a2e"></div>
+            <div class="form-group"><label>Accent Colour</label><input type="color" id="event-accent" value="#e94560"></div>
+            <div class="form-group"><label>Text Colour</label><input type="color" id="event-secondary" value="#ffffff"></div>
+          </div>
+          <div class="form-group">
+            <label>Logo (overrides org logo)</label>
+            <div class="file-pick-row">
+              <button class="btn btn-sm" id="pick-event-logo">Choose Image</button>
+              <span id="event-logo-name" class="file-name">No file chosen</span>
+            </div>
+            <img id="event-logo-preview" class="logo-preview hidden" alt="Logo preview">
+            <input type="hidden" id="event-logo-data">
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" id="save-event">Save Event</button>
+            <button class="btn" id="cancel-event">Cancel</button>
+          </div>
+        </div>
+        <div id="events-list" class="card-list"></div>
+      </section>
+
+      <!-- Import CSV -->
+      <section id="view-import" class="view">
+        <div class="view-header"><h2>Import Attendees</h2></div>
+        <div class="form-card">
+          <div class="form-group"><label>Select Event</label><select id="import-event"></select></div>
+          <div class="form-group">
+            <label>CSV File</label>
+            <p class="field-hint">Columns: <code>name, email, mobile, company, tickets</code></p>
+            <button class="btn btn-sm" id="pick-csv">Choose CSV File</button>
+            <span id="csv-file-name" class="file-name">No file chosen</span>
+          </div>
+          <div id="csv-preview" class="hidden">
+            <h4>Preview (<span id="csv-count">0</span> attendees, <span id="ticket-count">0</span> tickets)</h4>
+            <div class="table-scroll">
+              <table id="preview-table" class="data-table">
+                <thead><tr><th>Name</th><th>Email</th><th>Mobile</th><th>Company</th><th>Tickets</th></tr></thead>
+                <tbody id="preview-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" id="import-btn" disabled>Import to Database</button>
+          </div>
+          <div id="import-result" class="hidden"></div>
+        </div>
+      </section>
+
+      <!-- Generate Tickets -->
+      <section id="view-generate" class="view">
+        <div class="view-header"><h2>Generate Tickets</h2></div>
+        <div class="form-card">
+          <div class="form-group"><label>Select Event</label><select id="gen-event"></select></div>
+          <div id="gen-ticket-info" class="info-box hidden"></div>
+          <div class="form-actions">
+            <button class="btn btn-primary" id="gen-btn" disabled>Generate & Download PDF Tickets</button>
+          </div>
+          <div id="gen-result" class="hidden"></div>
+        </div>
+      </section>
+
+      <!-- Settings -->
+      <section id="view-settings" class="view">
+        <div class="view-header"><h2>Settings</h2></div>
+        <div class="form-card">
+          <h3>API Connection</h3>
+          <div class="form-group"><label>Server URL</label><input type="url" id="setting-url" placeholder="https://events.unitymedianetwork.com"></div>
+          <div class="form-group"><label>API Key</label><input type="password" id="setting-key" placeholder="Your API key from .env"></div>
+          <div class="form-actions">
+            <button class="btn btn-primary" id="save-settings">Save Settings</button>
+            <button class="btn" id="test-connection">Test Connection</button>
+          </div>
+          <div id="connection-status" class="hidden"></div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
