@@ -1,0 +1,5 @@
+[phases.install]
+cmds = ["cd ticket-system/web-scanner && npm install"]
+
+[start]
+cmd = "cd ticket-system/web-scanner && node app.js"
