@@ -150,7 +150,7 @@ async function loadOrgsList() {
             <span class="dot" style="background:${o.primary_color}" title="Primary"></span>
             <span class="dot" style="background:${o.accent_color}" title="Accent"></span>
           </div>
-          <button class="btn btn-sm btn-danger" onclick="deleteOrg(${o.id}, '${o.name.replace(/'/g, "\\'")}')">Delete</button>
+          <button class="btn btn-sm btn-danger" data-action="delete-org" data-id="${o.id}" data-name="${o.name.replace(/"/g, '&quot;')}">Delete</button>
         </div>
       </div>`).join('')
       : '<div class="empty-card"><p class="muted">No organisations yet.</p></div>';
@@ -167,7 +167,11 @@ async function deleteOrg(id, name) {
     loadOrgsList();
   } catch (e) { showToast(e.message, 'error'); }
 }
-window.deleteOrg = deleteOrg;
+
+document.getElementById('orgs-list').addEventListener('click', e => {
+  const btn = e.target.closest('[data-action]');
+  if (btn?.dataset.action === 'delete-org') deleteOrg(btn.dataset.id, btn.dataset.name);
+});
 
 document.getElementById('show-add-org').addEventListener('click', () => {
   document.getElementById('org-form-container').classList.remove('hidden');
@@ -228,7 +232,7 @@ async function loadEventsList() {
         <div class="list-card-meta">
           <span class="badge ${e.is_active ? 'badge-green' : 'badge-grey'}">${e.is_active ? 'Active' : 'Inactive'}</span>
           <span class="badge badge-blue">${e.total_tickets || 0} tickets</span>
-          <button class="btn btn-sm btn-danger" onclick="deleteEvent(${e.id}, '${e.name.replace(/'/g, "\\'")}')">Delete</button>
+          <button class="btn btn-sm btn-danger" data-action="delete-event" data-id="${e.id}" data-name="${e.name.replace(/"/g, '&quot;')}">Delete</button>
         </div>
       </div>`).join('')
       : '<div class="empty-card"><p class="muted">No events yet.</p></div>';
@@ -245,7 +249,11 @@ async function deleteEvent(id, name) {
     loadEventsList();
   } catch (e) { showToast(e.message, 'error'); }
 }
-window.deleteEvent = deleteEvent;
+
+document.getElementById('events-list').addEventListener('click', e => {
+  const btn = e.target.closest('[data-action]');
+  if (btn?.dataset.action === 'delete-event') deleteEvent(btn.dataset.id, btn.dataset.name);
+});
 
 document.getElementById('show-add-event').addEventListener('click', () => {
   document.getElementById('event-form-container').classList.remove('hidden');
@@ -432,7 +440,7 @@ async function loadUsersList() {
         </div>
         <div class="list-card-meta">
           <span class="badge ${u.organisation_id ? 'badge-blue' : 'badge-purple'}">${u.organisation_id ? 'Org Admin' : 'Super Admin'}</span>
-          <button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id}, '${u.username.replace(/'/g, "\\'")}')">Delete</button>
+          <button class="btn btn-sm btn-danger" data-action="delete-user" data-id="${u.id}" data-name="${u.username.replace(/"/g, '&quot;')}">Delete</button>
         </div>
       </div>`).join('')
       : '<div class="empty-card"><p class="muted">No admin users yet.</p></div>';
@@ -449,7 +457,11 @@ async function deleteUser(id, username) {
     loadUsersList();
   } catch (e) { showToast(e.message, 'error'); }
 }
-window.deleteUser = deleteUser;
+
+document.getElementById('users-list').addEventListener('click', e => {
+  const btn = e.target.closest('[data-action]');
+  if (btn?.dataset.action === 'delete-user') deleteUser(btn.dataset.id, btn.dataset.name);
+});
 
 document.getElementById('show-add-user').addEventListener('click', () => {
   document.getElementById('user-form-container').classList.remove('hidden');
