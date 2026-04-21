@@ -7,15 +7,14 @@
   <link rel="stylesheet" href="/css/styles.css">
   <style>
     :root {
-      --primary: <%= event.primary_color %>;
       --accent: <%= event.accent_color %>;
-      --secondary: <%= event.secondary_color %>;
+      --primary: <%= event.primary_color %>;
     }
   </style>
 </head>
 <body class="scanner-page">
-  <header class="scanner-header" style="background: var(--primary)">
-    <a href="/events" class="back-link">← Events</a>
+  <header class="scanner-header">
+    <a href="/events" class="back-link">&larr; All Events</a>
     <div class="scanner-event-info">
       <% if (event.logo_url) { %><img src="<%= event.logo_url %>" alt="" class="scanner-logo"><% } %>
       <div>
@@ -24,30 +23,24 @@
       </div>
     </div>
   </header>
-
   <main class="scanner-main">
     <div id="reader-container">
       <div id="reader"></div>
-      <div class="scanner-overlay">
-        <div class="scanner-frame"></div>
-        <p class="scanner-hint">Point camera at QR code</p>
-      </div>
+      <p class="scanner-hint">Point camera at ticket QR code</p>
     </div>
-
     <div id="result" class="result hidden">
       <div class="result-icon" id="result-icon"></div>
       <h2 id="result-name"></h2>
       <p id="result-company"></p>
       <p id="result-message"></p>
       <p id="result-time" class="result-time"></p>
-      <button id="scan-again" class="btn btn-primary">Scan Next</button>
+      <button id="scan-again" class="btn btn-primary">Scan Next Ticket</button>
     </div>
   </main>
-
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script>
     const EVENT_SLUG = '<%= event.slug %>';
-    const BASE_URL = '<%= process.env.BASE_URL || "" %>';
+    const BASE_URL = '<%= baseUrl %>';
   </script>
   <script src="/js/scanner.js"></script>
 </body>

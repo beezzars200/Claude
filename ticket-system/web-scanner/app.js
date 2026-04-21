@@ -13,9 +13,7 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
 app.use(cors({ origin: true, credentials: true }));
-
 app.use(session({
   secret: process.env.SESSION_SECRET || 'changeme-in-production',
   resave: false,
@@ -30,9 +28,9 @@ async function initDb() {
       name VARCHAR(255) NOT NULL,
       slug VARCHAR(100) UNIQUE NOT NULL,
       logo_url VARCHAR(500),
-      primary_color VARCHAR(7) DEFAULT '#1a1a2e',
+      primary_color VARCHAR(7) DEFAULT '#0f172a',
       secondary_color VARCHAR(7) DEFAULT '#ffffff',
-      accent_color VARCHAR(7) DEFAULT '#e94560',
+      accent_color VARCHAR(7) DEFAULT '#6366f1',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -46,9 +44,9 @@ async function initDb() {
       venue VARCHAR(255),
       slug VARCHAR(150) UNIQUE NOT NULL,
       logo_url VARCHAR(500),
-      primary_color VARCHAR(7) DEFAULT '#1a1a2e',
+      primary_color VARCHAR(7) DEFAULT '#0f172a',
       secondary_color VARCHAR(7) DEFAULT '#ffffff',
-      accent_color VARCHAR(7) DEFAULT '#e94560',
+      accent_color VARCHAR(7) DEFAULT '#6366f1',
       is_active TINYINT(1) DEFAULT 1,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (organisation_id) REFERENCES organisations(id) ON DELETE CASCADE
@@ -79,10 +77,20 @@ async function initDb() {
       FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
     )
   `);
-  await db.query(`CREATE INDEX IF NOT EXISTS idx_tickets_ticket_number ON tickets(ticket_number)`).catch(() => {});
-  await db.query(`CREATE INDEX IF NOT EXISTS idx_tickets_event_id ON tickets(event_id)`).catch(() => {});
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS admin_users (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      organisation_id INT DEFAULT NULL,
+      username VARCHAR(100) UNIQUE NOT NULL,
+      password_hash VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (organisation_id) REFERENCES organisations(id) ON DELETE CASCADE
+    )
+  `);
+  await db.query(`CREATE INDEX IF NOT EXISTS idx_tickets_number ON tickets(ticket_number)`).catch(() => {});
+  await db.query(`CREATE INDEX IF NOT EXISTS idx_tickets_event ON tickets(event_id)`).catch(() => {});
   await db.query(`CREATE INDEX IF NOT EXISTS idx_events_slug ON events(slug)`).catch(() => {});
-  console.log('Database tables ready');
+  console.log('Database ready');
 }
 
 app.use('/', require('./routes/events'));
@@ -95,9 +103,7 @@ app.use((err, req, res, next) => {
 });
 
 initDb().then(() => {
-  app.listen(port, () => {
-    console.log(`UMN Ticket Scanner running on port ${port}`);
-  });
+  app.listen(port, () => console.log(`UMN Ticket Scanner running on port ${port}`));
 }).catch(err => {
   console.error('Failed to initialise database:', err);
   process.exit(1);
