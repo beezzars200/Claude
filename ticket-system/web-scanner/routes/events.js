@@ -7,9 +7,14 @@ const requireAuth = (req, res, next) => {
   next();
 };
 
+const requireAuthApi = (req, res, next) => {
+  if (!req.session.authenticated) return res.status(401).json({ valid: false, message: 'Not authenticated' });
+  next();
+};
+
 router.get('/', (req, res) => res.redirect('/events'));
 
-router.get('/events', async (req, res) => {
+router.get('/events', requireAuth, async (req, res) => {
   let query = `
     SELECT e.*, o.name as org_name, o.slug as org_slug,
       COUNT(t.id) as total_tickets, SUM(t.scanned) as scanned_tickets
@@ -28,7 +33,7 @@ router.get('/events', async (req, res) => {
   res.render('events-list', { events });
 });
 
-router.get('/events/:slug/scan', async (req, res) => {
+router.get('/events/:slug/scan', requireAuth, async (req, res) => {
   const [rows] = await db.query(
     `SELECT e.*, o.name as org_name FROM events e
      JOIN organisations o ON e.organisation_id = o.id
@@ -39,7 +44,7 @@ router.get('/events/:slug/scan', async (req, res) => {
   res.render('scanner', { event: rows[0], baseUrl: process.env.BASE_URL || '' });
 });
 
-router.get('/verify/:ticketNumber', async (req, res) => {
+router.get('/verify/:ticketNumber', requireAuthApi, async (req, res) => {
   const [rows] = await db.query(
     `SELECT t.*, a.name, a.company, e.name as event_name, e.event_date
      FROM tickets t JOIN attendees a ON t.attendee_id = a.id
