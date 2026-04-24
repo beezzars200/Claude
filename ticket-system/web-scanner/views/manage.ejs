@@ -7,14 +7,25 @@
   <link rel="stylesheet" href="/css/manage.css">
 </head>
 <body>
-  <div class="app">
-    <aside class="sidebar">
+  <div class="app" id="app">
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+    <!-- Mobile top bar -->
+    <div class="mobile-topbar">
+      <button class="mobile-menu-btn" id="mobile-menu-btn">
+        <span></span><span></span><span></span>
+      </button>
+      <span class="mobile-title">UMN Tickets</span>
+    </div>
+
+    <aside class="sidebar" id="sidebar">
       <div class="sidebar-logo">
         <div class="sidebar-logo-mark">T</div>
         <div>
           <h1>UMN Tickets</h1>
           <p>Admin Console</p>
         </div>
+        <button class="sidebar-close-btn" id="sidebar-close" title="Close menu">&#x2715;</button>
       </div>
       <nav class="sidebar-nav">
         <p class="nav-section">Main</p>
@@ -36,6 +47,7 @@
     </aside>
 
     <main class="main-content">
+      <button class="sidebar-expand-btn" id="sidebar-expand" title="Open menu">&#9776;</button>
 
       <!-- Dashboard -->
       <section id="view-dashboard" class="view active">

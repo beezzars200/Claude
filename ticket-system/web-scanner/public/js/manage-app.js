@@ -506,5 +506,39 @@ document.getElementById('save-user').addEventListener('click', async () => {
   } catch (e) { showToast(e.message, 'error'); }
 });
 
+// ── Sidebar Toggle ─────────────────────────────────────
+const sidebarEl = document.getElementById('sidebar');
+const backdropEl = document.getElementById('sidebar-backdrop');
+const appEl = document.getElementById('app');
+
+function openSidebar() {
+  sidebarEl.classList.add('is-open');
+  backdropEl.classList.add('is-open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeSidebar() {
+  sidebarEl.classList.remove('is-open');
+  backdropEl.classList.remove('is-open');
+  document.body.style.overflow = '';
+}
+
+document.getElementById('mobile-menu-btn').addEventListener('click', openSidebar);
+document.getElementById('sidebar-close').addEventListener('click', () => {
+  if (window.innerWidth < 769) {
+    closeSidebar();
+  } else {
+    appEl.classList.add('sidebar-hidden');
+  }
+});
+document.getElementById('sidebar-expand').addEventListener('click', () => {
+  appEl.classList.remove('sidebar-hidden');
+});
+backdropEl.addEventListener('click', closeSidebar);
+
+navItems.forEach(btn => btn.addEventListener('click', () => {
+  if (window.innerWidth < 769) closeSidebar();
+}));
+
 // Init
 showView('dashboard');
