@@ -5,8 +5,9 @@ const db = require('../db/connection');
 
 const requireApiKey = (req, res, next) => {
   const key = req.headers['x-api-key'];
-  if (!key || key !== process.env.API_KEY) return res.status(401).json({ error: 'Unauthorized' });
-  next();
+  if (key && key === process.env.API_KEY) return next();
+  if (req.session && req.session.isSuperAdmin) return next();
+  return res.status(401).json({ error: 'Unauthorized' });
 };
 
 // ── Scan (no API key — door scanner) ──────────────────

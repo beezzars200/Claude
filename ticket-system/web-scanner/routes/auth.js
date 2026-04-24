@@ -22,7 +22,7 @@ router.post('/login', async (req, res) => {
         req.session.username = username;
         req.session.organisationId = user.organisation_id || null;
         req.session.isSuperAdmin = !user.organisation_id;
-        return res.redirect('/admin');
+        return res.redirect(user.organisation_id ? '/admin' : '/manage');
       }
     }
   } catch (e) {}
@@ -33,7 +33,7 @@ router.post('/login', async (req, res) => {
     req.session.username = username;
     req.session.organisationId = null;
     req.session.isSuperAdmin = true;
-    return res.redirect('/admin');
+    return res.redirect('/manage');
   }
 
   res.render('login', { error: 'Invalid username or password' });

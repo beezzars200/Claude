@@ -94,6 +94,7 @@ async function initDb() {
 }
 
 app.use('/', require('./routes/events'));
+app.use('/', require('./routes/manage'));
 app.use('/auth', require('./routes/auth'));
 app.use('/api', require('./routes/api'));
 
