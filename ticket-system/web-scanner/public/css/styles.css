@@ -1,11 +1,11 @@
 :root {
-  --primary: #0f172a;
-  --accent: #6366f1;
-  --accent-hover: #4f46e5;
+  --primary: #0a0a0a;
+  --accent: #e50000;
+  --accent-hover: #cc0000;
   --secondary: #ffffff;
   --grey: #f8fafc;
   --border: #e2e8f0;
-  --text: #0f172a;
+  --text: #0a0a0a;
   --muted: #64748b;
   --radius: 14px;
   --radius-sm: 8px;

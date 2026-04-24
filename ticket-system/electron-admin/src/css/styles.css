@@ -1,8 +1,8 @@
 :root {
-  --primary: #0f172a;
-  --primary-light: #1e293b;
-  --accent: #6366f1;
-  --accent-hover: #4f46e5;
+  --primary: #0a0a0a;
+  --primary-light: #1a1a1a;
+  --accent: #e50000;
+  --accent-hover: #cc0000;
   --sidebar-w: 220px;
   --bg: #f8fafc;
   --card: #ffffff;
@@ -49,7 +49,7 @@ body {
   position: absolute;
   top: 0; right: 0;
   width: 140px; height: 140px;
-  background: radial-gradient(circle, rgba(99,102,241,0.2) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(229,0,0,0.2) 0%, transparent 70%);
   pointer-events: none;
 }
 
@@ -63,7 +63,7 @@ body {
 
 .sidebar-logo-mark {
   width: 36px; height: 36px;
-  background: linear-gradient(135deg, var(--accent) 0%, #818cf8 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, #ff4444 100%);
   border-radius: 10px;
   display: flex;
   align-items: center;
@@ -72,7 +72,7 @@ body {
   font-weight: 800;
   letter-spacing: -0.5px;
   flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(99,102,241,0.4);
+  box-shadow: 0 4px 12px rgba(229,0,0,0.4);
 }
 
 .sidebar-logo h1 { font-size: 15px; font-weight: 700; line-height: 1.2; }
@@ -121,7 +121,7 @@ body {
 }
 
 .nav-item.active {
-  background: rgba(99,102,241,0.25);
+  background: rgba(229,0,0,0.25);
   color: white;
   font-weight: 600;
 }
@@ -196,7 +196,7 @@ body {
 
 .filter-select:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+  box-shadow: 0 0 0 3px rgba(229,0,0,0.1);
 }
 
 /* ── Stats Row ─────────────────────────────────────────── */
@@ -222,7 +222,7 @@ body {
   position: absolute;
   top: 0; left: 0; right: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--accent), #818cf8);
+  background: linear-gradient(90deg, var(--accent), #ff4444);
   border-radius: var(--radius) var(--radius) 0 0;
 }
 
@@ -315,7 +315,7 @@ body {
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent), #818cf8);
+  background: linear-gradient(90deg, var(--accent), #ff4444);
   border-radius: 99px;
   transition: width 0.4s ease;
   min-width: 2px;
@@ -371,7 +371,7 @@ body {
 .form-group input:focus,
 .form-group select:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+  box-shadow: 0 0 0 3px rgba(229,0,0,0.1);
 }
 
 .form-group input::placeholder { color: #94a3b8; }
@@ -465,7 +465,7 @@ body {
 .btn-primary:hover:not(:disabled) {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
-  box-shadow: 0 4px 14px rgba(99,102,241,0.4);
+  box-shadow: 0 4px 14px rgba(229,0,0,0.4);
 }
 
 .btn-danger {
