@@ -2,19 +2,30 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; script-src 'self'; style-src 'self' 'unsafe-inline';">
-  <title>UMN Ticket Admin</title>
-  <link rel="stylesheet" href="css/styles.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UMN Tickets — Admin</title>
+  <link rel="stylesheet" href="/css/manage.css">
 </head>
 <body>
-  <div class="app">
-    <aside class="sidebar">
+  <div class="app" id="app">
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+    <!-- Mobile top bar -->
+    <div class="mobile-topbar">
+      <button class="mobile-menu-btn" id="mobile-menu-btn">
+        <span></span><span></span><span></span>
+      </button>
+      <span class="mobile-title">UMN Tickets</span>
+    </div>
+
+    <aside class="sidebar" id="sidebar">
       <div class="sidebar-logo">
         <div class="sidebar-logo-mark">T</div>
         <div>
           <h1>UMN Tickets</h1>
           <p>Admin Console</p>
         </div>
+        <button class="sidebar-close-btn" id="sidebar-close" title="Close menu">&#x2715;</button>
       </div>
       <nav class="sidebar-nav">
         <p class="nav-section">Main</p>
@@ -28,11 +39,15 @@
         <button class="nav-item" data-view="users">Admin Users</button>
       </nav>
       <div class="sidebar-bottom">
-        <button class="nav-item" data-view="settings">Settings</button>
+        <div class="sidebar-user">
+          <span class="sidebar-username"><%=username%></span>
+          <a href="/auth/logout" class="btn btn-sm">Logout</a>
+        </div>
       </div>
     </aside>
 
     <main class="main-content">
+      <button class="sidebar-expand-btn" id="sidebar-expand" title="Open menu">&#9776;</button>
 
       <!-- Dashboard -->
       <section id="view-dashboard" class="view active">
@@ -165,7 +180,19 @@
       <!-- Generate Tickets -->
       <section id="view-generate" class="view">
         <div class="view-header"><div><h2>Generate Tickets</h2><p class="view-sub">Create PDF tickets for an event</p></div></div>
-        <div class="form-card">
+
+        <!-- Shown in browser -->
+        <div id="gen-web-notice" class="form-card hidden">
+          <div class="desktop-notice">
+            <div class="desktop-notice-icon">💻</div>
+            <h3>Desktop App Required</h3>
+            <p class="muted">PDF ticket generation requires the UMN Tickets desktop app for Mac.</p>
+            <p class="muted" style="margin-top:6px">Everything else works here in the browser.</p>
+          </div>
+        </div>
+
+        <!-- Shown in Electron -->
+        <div id="gen-electron-section" class="form-card hidden">
           <div class="form-group"><label>Select Event</label><select id="gen-event"></select></div>
           <div id="gen-ticket-info" class="info-box hidden"></div>
           <div class="form-actions">
@@ -183,7 +210,7 @@
         </div>
         <div id="user-form-container" class="form-card hidden">
           <h3>New Admin User</h3>
-          <p class="field-hint" style="margin-bottom:16px">Organisation admins only see their own events on the scanner web app. Leave blank for super admin access.</p>
+          <p class="field-hint" style="margin-bottom:16px">Organisation admins only see their own events. Leave blank for super admin access.</p>
           <div class="form-row">
             <div class="form-group"><label>Username</label><input type="text" id="user-username" placeholder="e.g. grattan-admin"></div>
             <div class="form-group"><label>Password</label><input type="password" id="user-password" placeholder="Strong password"></div>
@@ -197,27 +224,18 @@
         <div id="users-list" class="card-list"></div>
       </section>
 
-      <!-- Settings -->
-      <section id="view-settings" class="view">
-        <div class="view-header"><div><h2>Settings</h2><p class="view-sub">Configure server connection</p></div></div>
-        <div class="form-card">
-          <h3>API Connection</h3>
-          <div class="form-group"><label>Server URL</label><input type="url" id="setting-url" placeholder="https://events.unitymedianetwork.com"></div>
-          <div class="form-group"><label>API Key</label><input type="password" id="setting-key" placeholder="Your API key from Railway variables"></div>
-          <div class="form-actions">
-            <button class="btn btn-primary" id="save-settings">Save Settings</button>
-            <button class="btn" id="test-connection">Test Connection</button>
-          </div>
-          <div id="connection-status" class="hidden"></div>
-        </div>
-      </section>
-
     </main>
   </div>
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="js/api.js"></script>
-  <script src="js/app.js"></script>
+  <!-- Hidden file inputs for web (Electron uses native dialogs instead) -->
+  <input type="file" id="web-csv-input" accept=".csv" style="display:none">
+  <input type="file" id="web-org-logo-input" accept="image/*" style="display:none">
+  <input type="file" id="web-event-logo-input" accept="image/*" style="display:none">
+
+  <script>const IS_ELECTRON = navigator.userAgent.includes('Electron');</script>
+  <script src="/js/manage-api.js"></script>
+  <script src="/js/manage-app.js"></script>
 </body>
 </html>

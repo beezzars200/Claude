@@ -8,11 +8,11 @@ function showView(viewId) {
   document.getElementById(`view-${viewId}`)?.classList.add('active');
   document.querySelector(`[data-view="${viewId}"]`)?.classList.add('active');
   if (viewId === 'dashboard') loadDashboard();
-  if (viewId === 'import' || viewId === 'generate') loadEventSelects();
+  if (viewId === 'import') loadEventSelects();
   if (viewId === 'events') { loadEventsList(); loadOrgSelect(); }
   if (viewId === 'organisations') loadOrgsList();
   if (viewId === 'users') { loadUsersList(); loadUserOrgSelect(); }
-  if (viewId === 'settings') loadSettings();
+  if (viewId === 'generate') { setupGenerateSection(); if (IS_ELECTRON) loadEventSelects(); }
 }
 
 navItems.forEach(btn => btn.addEventListener('click', () => showView(btn.dataset.view)));
@@ -22,10 +22,6 @@ function showToast(msg, type = 'info') {
   t.textContent = msg;
   t.className = `toast toast-${type}`;
   setTimeout(() => t.classList.add('hidden'), 3500);
-}
-
-function confirmAction(msg) {
-  return window.confirm(msg);
 }
 
 // ── CSV Parser ─────────────────────────────────────────
@@ -59,31 +55,53 @@ function findCol(row, ...patterns) {
   return '';
 }
 
-// ── Settings ──────────────────────────────────────────
-function loadSettings() {
-  const { url, key } = API.getConfig();
-  document.getElementById('setting-url').value = url;
-  document.getElementById('setting-key').value = key;
+// ── File Pickers ───────────────────────────────────────
+async function pickCsv() {
+  if (IS_ELECTRON && window.electronAPI) return window.electronAPI.openCsv();
+  return new Promise(resolve => {
+    const input = document.getElementById('web-csv-input');
+    const handler = () => {
+      const file = input.files[0];
+      if (!file) return resolve(null);
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.readAsText(file);
+      input.value = '';
+      input.removeEventListener('change', handler);
+    };
+    input.addEventListener('change', handler);
+    input.click();
+  });
 }
 
-document.getElementById('save-settings').addEventListener('click', () => {
-  localStorage.setItem('serverUrl', document.getElementById('setting-url').value.trim().replace(/\/$/, ''));
-  localStorage.setItem('apiKey', document.getElementById('setting-key').value.trim());
-  showToast('Settings saved', 'success');
-});
+async function pickImage(webInputId) {
+  if (IS_ELECTRON && window.electronAPI) return window.electronAPI.openImage();
+  return new Promise(resolve => {
+    const input = document.getElementById(webInputId);
+    const handler = () => {
+      const file = input.files[0];
+      if (!file) return resolve(null);
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.readAsDataURL(file);
+      input.value = '';
+      input.removeEventListener('change', handler);
+    };
+    input.addEventListener('change', handler);
+    input.click();
+  });
+}
 
-document.getElementById('test-connection').addEventListener('click', async () => {
-  const el = document.getElementById('connection-status');
-  el.className = 'info-box'; el.textContent = 'Testing connection…'; el.classList.remove('hidden');
-  try {
-    const ok = await API.testConnection();
-    el.className = ok ? 'info-box info-success' : 'info-box info-error';
-    el.textContent = ok ? '✓ Connected successfully' : '✗ Connection failed — check URL and API key';
-  } catch (e) {
-    el.className = 'info-box info-error';
-    el.textContent = `✗ ${e.message}`;
+// ── Generate Section ───────────────────────────────────
+function setupGenerateSection() {
+  if (IS_ELECTRON) {
+    document.getElementById('gen-electron-section').classList.remove('hidden');
+    document.getElementById('gen-web-notice').classList.add('hidden');
+  } else {
+    document.getElementById('gen-electron-section').classList.add('hidden');
+    document.getElementById('gen-web-notice').classList.remove('hidden');
   }
-});
+}
 
 // ── Dashboard ──────────────────────────────────────────
 let allEvents = [];
@@ -98,7 +116,8 @@ async function loadDashboard() {
       orgs.map(o => `<option value="${o}"${o === current ? ' selected' : ''}>${o}</option>`).join('');
     renderDashboard();
   } catch (e) {
-    document.getElementById('dashboard-events-list').innerHTML = `<div class="empty-card"><p class="error">${e.message}</p></div>`;
+    document.getElementById('dashboard-events-list').innerHTML =
+      `<div class="empty-card"><p class="error">${e.message}</p></div>`;
   }
 }
 
@@ -114,7 +133,7 @@ function renderDashboard() {
 
   const list = document.getElementById('dashboard-events-list');
   list.innerHTML = events.length ? events.map(e => {
-    const pct = e.total_tickets ? Math.round((e.scanned_tickets / e.total_tickets) * 100) : 0;
+    const pct = e.total_tickets ? Math.round((parseInt(e.scanned_tickets) / parseInt(e.total_tickets)) * 100) : 0;
     return `
       <div class="list-card">
         <div class="list-card-main">
@@ -126,7 +145,7 @@ function renderDashboard() {
             <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
             <span class="muted">${e.scanned_tickets || 0}/${e.total_tickets || 0}</span>
           </div>
-          <a href="${API.getConfig().url}/events/${e.slug}/scan" target="_blank" class="btn btn-sm">Scanner ↗</a>
+          <a href="/events/${e.slug}/scan" target="_blank" class="btn btn-sm">Scanner ↗</a>
         </div>
       </div>`;
   }).join('') : '<div class="empty-card"><p class="muted">No events found.</p></div>';
@@ -180,13 +199,15 @@ function fillOrgForm(org) {
   document.getElementById('org-logo-data').value = org.logo_url || '';
   const preview = document.getElementById('org-logo-preview');
   if (org.logo_url) {
-    preview.src = org.logo_url; preview.classList.remove('hidden');
+    preview.src = org.logo_url;
+    preview.classList.remove('hidden');
     document.getElementById('org-logo-name').textContent = 'Current logo';
   } else {
     preview.classList.add('hidden');
     document.getElementById('org-logo-name').textContent = 'No file chosen';
   }
   document.getElementById('org-form-container').classList.remove('hidden');
+  document.getElementById('org-form-container').scrollIntoView({ behavior: 'smooth' });
 }
 
 function resetOrgForm() {
@@ -202,7 +223,7 @@ function resetOrgForm() {
 }
 
 async function deleteOrg(id, name) {
-  if (!confirmAction(`Delete "${name}"? This will delete all events and tickets for this organisation.`)) return;
+  if (!confirm(`Delete "${name}"? This will delete all events and tickets for this organisation.`)) return;
   try {
     await API.deleteOrganisation(id);
     showToast('Organisation deleted', 'success');
@@ -231,7 +252,7 @@ document.getElementById('org-name').addEventListener('input', e => {
   }
 });
 document.getElementById('pick-org-logo').addEventListener('click', async () => {
-  const data = await window.electronAPI.openImage();
+  const data = await pickImage('web-org-logo-input');
   if (!data) return;
   document.getElementById('org-logo-data').value = data;
   document.getElementById('org-logo-name').textContent = 'Image selected';
@@ -302,29 +323,31 @@ async function loadEventsList() {
   }
 }
 
-function fillEventForm(evt) {
-  currentEventEditId = evt.id;
+function fillEventForm(ev) {
+  currentEventEditId = ev.id;
   document.getElementById('event-form-container').querySelector('h3').textContent = 'Edit Event';
   document.getElementById('save-event').textContent = 'Save Changes';
-  document.getElementById('event-name').value = evt.name || '';
-  document.getElementById('event-slug').value = evt.slug || '';
-  document.getElementById('event-date').value = evt.event_date ? evt.event_date.split('T')[0] : '';
-  document.getElementById('event-time').value = evt.event_time || '';
-  document.getElementById('event-venue').value = evt.venue || '';
-  document.getElementById('event-org').value = evt.organisation_id || '';
-  document.getElementById('event-primary').value = evt.primary_color || '#0a0a0a';
-  document.getElementById('event-accent').value = evt.accent_color || '#e50000';
-  document.getElementById('event-secondary').value = evt.secondary_color || '#ffffff';
-  document.getElementById('event-logo-data').value = evt.logo_url || '';
+  document.getElementById('event-org').value = ev.organisation_id || '';
+  document.getElementById('event-name').value = ev.name || '';
+  document.getElementById('event-slug').value = ev.slug || '';
+  document.getElementById('event-date').value = ev.event_date ? ev.event_date.split('T')[0] : '';
+  document.getElementById('event-time').value = ev.event_time || '';
+  document.getElementById('event-venue').value = ev.venue || '';
+  document.getElementById('event-primary').value = ev.primary_color || '#0a0a0a';
+  document.getElementById('event-accent').value = ev.accent_color || '#e50000';
+  document.getElementById('event-secondary').value = ev.secondary_color || '#ffffff';
+  document.getElementById('event-logo-data').value = ev.logo_url || '';
   const preview = document.getElementById('event-logo-preview');
-  if (evt.logo_url) {
-    preview.src = evt.logo_url; preview.classList.remove('hidden');
+  if (ev.logo_url) {
+    preview.src = ev.logo_url;
+    preview.classList.remove('hidden');
     document.getElementById('event-logo-name').textContent = 'Current logo';
   } else {
     preview.classList.add('hidden');
     document.getElementById('event-logo-name').textContent = 'No file chosen';
   }
   document.getElementById('event-form-container').classList.remove('hidden');
+  document.getElementById('event-form-container').scrollIntoView({ behavior: 'smooth' });
 }
 
 function resetEventForm() {
@@ -333,9 +356,6 @@ function resetEventForm() {
   document.getElementById('save-event').textContent = 'Save Event';
   document.getElementById('event-name').value = '';
   document.getElementById('event-slug').value = '';
-  document.getElementById('event-date').value = '';
-  document.getElementById('event-time').value = '';
-  document.getElementById('event-venue').value = '';
   document.getElementById('event-logo-data').value = '';
   document.getElementById('event-logo-preview').classList.add('hidden');
   document.getElementById('event-logo-name').textContent = 'No file chosen';
@@ -343,7 +363,7 @@ function resetEventForm() {
 }
 
 async function deleteEvent(id, name) {
-  if (!confirmAction(`Delete "${name}"? This will delete all tickets and attendees for this event.`)) return;
+  if (!confirm(`Delete "${name}"? This will delete all tickets and attendees for this event.`)) return;
   try {
     await API.deleteEvent(id);
     showToast('Event deleted', 'success');
@@ -356,8 +376,8 @@ document.getElementById('events-list').addEventListener('click', e => {
   if (!btn) return;
   if (btn.dataset.action === 'delete-event') deleteEvent(btn.dataset.id, btn.dataset.name);
   if (btn.dataset.action === 'edit-event') {
-    const evt = loadedEvents.find(ev => ev.id == btn.dataset.id);
-    if (evt) fillEventForm(evt);
+    const ev = loadedEvents.find(e => e.id == btn.dataset.id);
+    if (ev) fillEventForm(ev);
   }
 });
 
@@ -372,7 +392,7 @@ document.getElementById('event-name').addEventListener('input', e => {
   }
 });
 document.getElementById('pick-event-logo').addEventListener('click', async () => {
-  const data = await window.electronAPI.openImage();
+  const data = await pickImage('web-event-logo-input');
   if (!data) return;
   document.getElementById('event-logo-data').value = data;
   document.getElementById('event-logo-name').textContent = 'Image selected';
@@ -420,12 +440,12 @@ async function loadEventSelects() {
         `<option value="${e.id}" data-event='${JSON.stringify(e)}'>${e.name} — ${e.org_name} (${new Date(e.event_date).toLocaleDateString('en-GB')})</option>`
       ).join('');
     });
-    updateGenInfo();
+    if (IS_ELECTRON) updateGenInfo();
   } catch (e) {}
 }
 
 document.getElementById('pick-csv').addEventListener('click', async () => {
-  const csvText = await window.electronAPI.openCsv();
+  const csvText = await pickCsv();
   if (!csvText) return;
   document.getElementById('csv-file-name').textContent = 'File loaded';
 
@@ -483,8 +503,9 @@ document.getElementById('import-btn').addEventListener('click', async () => {
   }
 });
 
-// ── Generate Tickets ───────────────────────────────────
+// ── Generate Tickets (Electron only) ──────────────────
 async function updateGenInfo() {
+  if (!IS_ELECTRON) return;
   const sel = document.getElementById('gen-event');
   const btn = document.getElementById('gen-btn');
   const info = document.getElementById('gen-ticket-info');
@@ -503,12 +524,13 @@ async function updateGenInfo() {
 document.getElementById('gen-event').addEventListener('change', updateGenInfo);
 
 document.getElementById('gen-btn').addEventListener('click', async () => {
+  if (!IS_ELECTRON || !window.electronAPI) return;
   const sel = document.getElementById('gen-event');
   const btn = document.getElementById('gen-btn');
   const result = document.getElementById('gen-result');
   const opt = sel.options[sel.selectedIndex];
   const evt = JSON.parse(opt.dataset.event);
-  evt.baseUrl = API.getConfig().url;
+  evt.baseUrl = window.location.origin;
   btn.disabled = true; btn.textContent = 'Generating PDFs…';
   result.classList.add('hidden');
   try {
@@ -561,7 +583,7 @@ async function loadUsersList() {
 }
 
 async function deleteUser(id, username) {
-  if (!confirmAction(`Delete user "${username}"?`)) return;
+  if (!confirm(`Delete user "${username}"?`)) return;
   try {
     await API.deleteAdminUser(id);
     showToast('User deleted', 'success');
@@ -595,6 +617,40 @@ document.getElementById('save-user').addEventListener('click', async () => {
     loadUsersList();
   } catch (e) { showToast(e.message, 'error'); }
 });
+
+// ── Sidebar Toggle ─────────────────────────────────────
+const sidebarEl = document.getElementById('sidebar');
+const backdropEl = document.getElementById('sidebar-backdrop');
+const appEl = document.getElementById('app');
+
+function openSidebar() {
+  sidebarEl.classList.add('is-open');
+  backdropEl.classList.add('is-open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeSidebar() {
+  sidebarEl.classList.remove('is-open');
+  backdropEl.classList.remove('is-open');
+  document.body.style.overflow = '';
+}
+
+document.getElementById('mobile-menu-btn').addEventListener('click', openSidebar);
+document.getElementById('sidebar-close').addEventListener('click', () => {
+  if (window.innerWidth < 769) {
+    closeSidebar();
+  } else {
+    appEl.classList.add('sidebar-hidden');
+  }
+});
+document.getElementById('sidebar-expand').addEventListener('click', () => {
+  appEl.classList.remove('sidebar-hidden');
+});
+backdropEl.addEventListener('click', closeSidebar);
+
+navItems.forEach(btn => btn.addEventListener('click', () => {
+  if (window.innerWidth < 769) closeSidebar();
+}));
 
 // Init
 showView('dashboard');
