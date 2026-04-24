@@ -90,6 +90,9 @@ async function initDb() {
   await db.query(`CREATE INDEX IF NOT EXISTS idx_tickets_number ON tickets(ticket_number)`).catch(() => {});
   await db.query(`CREATE INDEX IF NOT EXISTS idx_tickets_event ON tickets(event_id)`).catch(() => {});
   await db.query(`CREATE INDEX IF NOT EXISTS idx_events_slug ON events(slug)`).catch(() => {});
+  // Widen logo columns to handle base64 image data
+  await db.query(`ALTER TABLE organisations MODIFY COLUMN logo_url MEDIUMTEXT`).catch(() => {});
+  await db.query(`ALTER TABLE events MODIFY COLUMN logo_url MEDIUMTEXT`).catch(() => {});
   console.log('Database ready');
 }
 

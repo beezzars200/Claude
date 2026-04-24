@@ -36,12 +36,16 @@ router.get('/organisations', requireApiKey, async (req, res) => {
 });
 
 router.post('/organisations', requireApiKey, async (req, res) => {
-  const { name, slug, logo_url, primary_color, secondary_color, accent_color } = req.body;
-  const [result] = await db.query(
-    'INSERT INTO organisations (name, slug, logo_url, primary_color, secondary_color, accent_color) VALUES (?, ?, ?, ?, ?, ?)',
-    [name, slug, logo_url || null, primary_color || '#0f172a', secondary_color || '#ffffff', accent_color || '#6366f1']
-  );
-  res.json({ id: result.insertId, name, slug });
+  try {
+    const { name, slug, logo_url, primary_color, secondary_color, accent_color } = req.body;
+    const [result] = await db.query(
+      'INSERT INTO organisations (name, slug, logo_url, primary_color, secondary_color, accent_color) VALUES (?, ?, ?, ?, ?, ?)',
+      [name, slug, logo_url || null, primary_color || '#0a0a0a', secondary_color || '#ffffff', accent_color || '#e50000']
+    );
+    res.json({ id: result.insertId, name, slug });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 router.delete('/organisations/:id', requireApiKey, async (req, res) => {
@@ -65,14 +69,18 @@ router.get('/events', requireApiKey, async (req, res) => {
 });
 
 router.post('/events', requireApiKey, async (req, res) => {
-  const { organisation_id, name, event_date, event_time, venue, slug, logo_url, primary_color, secondary_color, accent_color } = req.body;
-  const [result] = await db.query(
-    `INSERT INTO events (organisation_id, name, event_date, event_time, venue, slug, logo_url, primary_color, secondary_color, accent_color)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [organisation_id, name, event_date, event_time || null, venue, slug, logo_url || null,
-     primary_color || '#0f172a', secondary_color || '#ffffff', accent_color || '#6366f1']
-  );
-  res.json({ id: result.insertId, name, slug });
+  try {
+    const { organisation_id, name, event_date, event_time, venue, slug, logo_url, primary_color, secondary_color, accent_color } = req.body;
+    const [result] = await db.query(
+      `INSERT INTO events (organisation_id, name, event_date, event_time, venue, slug, logo_url, primary_color, secondary_color, accent_color)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [organisation_id, name, event_date, event_time || null, venue, slug, logo_url || null,
+       primary_color || '#0a0a0a', secondary_color || '#ffffff', accent_color || '#e50000']
+    );
+    res.json({ id: result.insertId, name, slug });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 router.delete('/events/:id', requireApiKey, async (req, res) => {
