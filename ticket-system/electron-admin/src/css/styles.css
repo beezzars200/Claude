@@ -259,6 +259,7 @@ body {
   border: 1px solid var(--border-light);
   transition: box-shadow 0.2s, border-color 0.2s;
   gap: 16px;
+  cursor: pointer;
 }
 
 .list-card:hover {
@@ -271,6 +272,7 @@ body {
   flex-direction: column;
   gap: 4px;
   min-width: 0;
+  flex: 1;
 }
 
 .list-card-main strong {

@@ -143,10 +143,10 @@ async function loadOrgsList() {
   try {
     loadedOrgs = await API.getOrganisations();
     list.innerHTML = loadedOrgs.length ? loadedOrgs.map(o => `
-      <div class="list-card">
+      <div class="list-card" data-org-id="${o.id}">
         <div class="card-logo-wrap">
           ${o.logo_url
-            ? `<img src="${o.logo_url}" class="card-logo" alt="">`
+            ? `<img class="card-logo" alt="">`
             : `<div class="card-logo-placeholder">${o.name.charAt(0).toUpperCase()}</div>`}
         </div>
         <div class="list-card-main">
@@ -163,6 +163,10 @@ async function loadOrgsList() {
         </div>
       </div>`).join('')
       : '<div class="empty-card"><p class="muted">No organisations yet.</p></div>';
+    list.querySelectorAll('.list-card[data-org-id]').forEach(card => {
+      const org = loadedOrgs.find(o => o.id == card.dataset.orgId);
+      if (org?.logo_url) { const img = card.querySelector('.card-logo'); if (img) img.src = org.logo_url; }
+    });
   } catch (e) {
     list.innerHTML = `<div class="empty-card"><p class="error">${e.message}</p></div>`;
   }
@@ -212,10 +216,17 @@ async function deleteOrg(id, name) {
 
 document.getElementById('orgs-list').addEventListener('click', e => {
   const btn = e.target.closest('[data-action]');
-  if (!btn) return;
-  if (btn.dataset.action === 'delete-org') deleteOrg(btn.dataset.id, btn.dataset.name);
-  if (btn.dataset.action === 'edit-org') {
-    const org = loadedOrgs.find(o => o.id == btn.dataset.id);
+  if (btn) {
+    if (btn.dataset.action === 'delete-org') deleteOrg(btn.dataset.id, btn.dataset.name);
+    if (btn.dataset.action === 'edit-org') {
+      const org = loadedOrgs.find(o => o.id == btn.dataset.id);
+      if (org) fillOrgForm(org);
+    }
+    return;
+  }
+  const card = e.target.closest('.list-card[data-org-id]');
+  if (card) {
+    const org = loadedOrgs.find(o => o.id == card.dataset.orgId);
     if (org) fillOrgForm(org);
   }
 });
@@ -279,10 +290,10 @@ async function loadEventsList() {
   try {
     loadedEvents = await API.getEvents();
     list.innerHTML = loadedEvents.length ? loadedEvents.map(e => `
-      <div class="list-card">
+      <div class="list-card" data-event-id="${e.id}">
         <div class="card-logo-wrap">
           ${e.logo_url
-            ? `<img src="${e.logo_url}" class="card-logo" alt="">`
+            ? `<img class="card-logo" alt="">`
             : `<div class="card-logo-placeholder">${e.name.charAt(0).toUpperCase()}</div>`}
         </div>
         <div class="list-card-main">
@@ -297,6 +308,10 @@ async function loadEventsList() {
         </div>
       </div>`).join('')
       : '<div class="empty-card"><p class="muted">No events yet.</p></div>';
+    list.querySelectorAll('.list-card[data-event-id]').forEach(card => {
+      const ev = loadedEvents.find(e => e.id == card.dataset.eventId);
+      if (ev?.logo_url) { const img = card.querySelector('.card-logo'); if (img) img.src = ev.logo_url; }
+    });
   } catch (e) {
     list.innerHTML = `<div class="empty-card"><p class="error">${e.message}</p></div>`;
   }
@@ -353,10 +368,17 @@ async function deleteEvent(id, name) {
 
 document.getElementById('events-list').addEventListener('click', e => {
   const btn = e.target.closest('[data-action]');
-  if (!btn) return;
-  if (btn.dataset.action === 'delete-event') deleteEvent(btn.dataset.id, btn.dataset.name);
-  if (btn.dataset.action === 'edit-event') {
-    const evt = loadedEvents.find(ev => ev.id == btn.dataset.id);
+  if (btn) {
+    if (btn.dataset.action === 'delete-event') deleteEvent(btn.dataset.id, btn.dataset.name);
+    if (btn.dataset.action === 'edit-event') {
+      const evt = loadedEvents.find(ev => ev.id == btn.dataset.id);
+      if (evt) fillEventForm(evt);
+    }
+    return;
+  }
+  const card = e.target.closest('.list-card[data-event-id]');
+  if (card) {
+    const evt = loadedEvents.find(ev => ev.id == card.dataset.eventId);
     if (evt) fillEventForm(evt);
   }
 });
