@@ -11,16 +11,20 @@
     "dist": "npm run build && electron-builder"
   },
   "dependencies": {
+    "lucide-react": "^0.460.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-globe.gl": "^2.27.2",
     "three": "^0.169.0",
-    "lucide-react": "^0.460.0"
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@types/three": "^0.169.0",
+    "@types/topojson-client": "^3.1.5",
+    "@types/topojson-specification": "^1.0.5",
     "@vitejs/plugin-react": "^4.3.3",
     "electron": "^33.2.0",
     "electron-builder": "^25.1.8",

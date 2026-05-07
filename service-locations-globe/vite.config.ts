@@ -29,6 +29,6 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ['react-globe.gl', 'three'],
+    include: ['react-globe.gl', 'three', 'topojson-client', 'world-atlas/countries-110m.json'],
   },
 })
