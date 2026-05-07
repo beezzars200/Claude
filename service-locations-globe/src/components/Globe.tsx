@@ -145,10 +145,10 @@ export default function Globe({ providers, selected, onSelect, highlighted }: Pr
     `
   }, [])
 
-  // Country polygon styling — sharp vector borders at any zoom level
-  const getPolygonCapColor = useCallback(() => 'rgba(0,0,0,0)', [])
+  // Subtle land fill so land vs ocean is readable, border gives sharp definition at any zoom
+  const getPolygonCapColor = useCallback(() => 'rgba(30, 60, 95, 0.38)', [])
   const getPolygonSideColor = useCallback(() => 'rgba(0,0,0,0)', [])
-  const getPolygonStrokeColor = useCallback(() => '#1a2d4a', [])
+  const getPolygonStrokeColor = useCallback(() => 'rgba(80, 160, 240, 0.65)', [])
 
   return (
     <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
@@ -159,11 +159,8 @@ export default function Globe({ providers, selected, onSelect, highlighted }: Pr
           height={dimensions.height}
           backgroundColor="rgba(0,0,0,0)"
 
-          // Night lights texture — city glow from space
           globeImageUrl="//unpkg.com/three-globe/example/img/earth-night.jpg"
-          bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
 
-          // Atmosphere tuned for night scene
           atmosphereColor="#1a4a7a"
           atmosphereAltitude={0.22}
 
