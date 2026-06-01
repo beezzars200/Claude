@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FIFA World Cup 2026 — Interactive Bracket</title>
+  <meta name="description" content="Interactive bracket and schedule for the 2026 FIFA World Cup. All times in your local European timezone." />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner">
+    <div class="site-title">
+      <span class="trophy">🏆</span>FIFA World Cup 2026
+    </div>
+    <div class="header-right">
+      <span class="tz-flag" id="tzFlag">🇮🇪</span>
+      <span class="tz-label">All times shown in</span>
+      <select class="country-select" id="countrySelect" aria-label="Select timezone country"></select>
+    </div>
+  </div>
+</header>
+
+<nav class="tabs-bar" role="tablist">
+  <div class="tabs-inner">
+    <button class="tab-btn active" data-tab="groups"   role="tab" aria-selected="true">Groups</button>
+    <button class="tab-btn"        data-tab="bracket"  role="tab" aria-selected="false">Bracket</button>
+    <button class="tab-btn"        data-tab="schedule" role="tab" aria-selected="false">Schedule</button>
+  </div>
+</nav>
+
+<main class="main-content">
+
+  <section class="tab-panel active" id="tab-groups">
+    <div class="groups-grid" id="groupsGrid"></div>
+  </section>
+
+  <section class="tab-panel" id="tab-bracket">
+    <div class="bracket-container">
+      <div class="bracket-scroll" id="bracketScroll">
+        <div class="bracket" id="bracketRoot"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="tab-panel" id="tab-schedule">
+    <div class="schedule-filters">
+      <div class="filter-group">
+        <span class="filter-label">Show:</span>
+        <button class="filter-btn active" data-status="all">All</button>
+        <button class="filter-btn" data-status="upcoming">Upcoming</button>
+        <button class="filter-btn" data-status="today">Today</button>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Group:</span>
+        <select class="filter-select" id="groupFilterSelect">
+          <option value="all">All Matches</option>
+          <option value="A">Group A</option>
+          <option value="B">Group B</option>
+          <option value="C">Group C</option>
+          <option value="D">Group D</option>
+          <option value="E">Group E</option>
+          <option value="F">Group F</option>
+          <option value="G">Group G</option>
+          <option value="H">Group H</option>
+          <option value="I">Group I</option>
+          <option value="J">Group J</option>
+          <option value="K">Group K</option>
+          <option value="L">Group L</option>
+          <option value="ko">Knockouts</option>
+        </select>
+      </div>
+    </div>
+    <div class="schedule-body" id="scheduleBody"></div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <span id="lastUpdated">Data last updated: —</span>
+  &nbsp;|&nbsp; Groups from confirmed Dec 2025 draw. Update <code>data/results.json</code> for live scores.
+</footer>
+
+<script src="js/tournament.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
