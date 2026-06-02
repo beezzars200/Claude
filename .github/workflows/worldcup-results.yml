@@ -35,7 +35,6 @@ jobs:
           API_KEY = os.environ.get('FOOTBALL_DATA_API_KEY', '')
           RESULTS_PATH = 'worldcup2026/data/results.json'
 
-          # Load existing results
           try:
               with open(RESULTS_PATH) as f:
                   data = json.load(f)
@@ -46,16 +45,141 @@ jobs:
               print('No FOOTBALL_DATA_API_KEY secret set — skipping API call.')
               sys.exit(0)
 
-          # football-data.org v4 — FIFA World Cup 2026 competition code: WC
-          url = 'https://api.football-data.org/v4/competitions/WC/matches'
-          req = urllib.request.Request(url, headers={'X-Auth-Token': API_KEY})
+          # Normalize football-data.org TLAs to our internal codes where they differ
+          TLA_NORM = {
+              'CDI': 'CIV',  # Ivory Coast
+              'SAU': 'KSA',  # Saudi Arabia
+              'DRC': 'COD',  # DR Congo
+              'BOS': 'BIH',  # Bosnia & Herzegovina
+              'CUR': 'CUW',  # Curaçao
+              'SKO': 'KOR',  # South Korea (some providers)
+          }
 
-          try:
-              with urllib.request.urlopen(req, timeout=15) as resp:
-                  api_data = json.loads(resp.read())
-          except urllib.error.URLError as e:
-              print(f'API fetch failed: {e}')
-              sys.exit(1)
+          # Group matches: (date, utc_time, home_team_code) -> internal_id
+          # home_team_code is OUR code (after TLA_NORM applied)
+          # Simultaneous matchday-3 pairs share date+time but differ by home team
+          GROUP_LOOKUP = {
+              # Group A
+              ('2026-06-11', '19:00', 'MEX'): 'GA-MD1a',
+              ('2026-06-12', '02:00', 'KOR'): 'GA-MD1b',
+              ('2026-06-19', '01:00', 'MEX'): 'GA-MD2a',
+              ('2026-06-18', '16:00', 'CZE'): 'GA-MD2b',
+              ('2026-06-25', '01:00', 'MEX'): 'GA-MD3a',
+              ('2026-06-25', '01:00', 'KOR'): 'GA-MD3b',
+              # Group B
+              ('2026-06-12', '19:00', 'CAN'): 'GB-MD1a',
+              ('2026-06-13', '19:00', 'QAT'): 'GB-MD1b',
+              ('2026-06-18', '22:00', 'CAN'): 'GB-MD2a',
+              ('2026-06-18', '19:00', 'BIH'): 'GB-MD2b',
+              ('2026-06-24', '19:00', 'CAN'): 'GB-MD3a',
+              ('2026-06-24', '19:00', 'BIH'): 'GB-MD3b',
+              # Group C
+              ('2026-06-13', '22:00', 'BRA'): 'GC-MD1a',
+              ('2026-06-14', '01:00', 'HAI'): 'GC-MD1b',
+              ('2026-06-20', '00:30', 'BRA'): 'GC-MD2a',
+              ('2026-06-19', '22:00', 'MAR'): 'GC-MD2b',
+              ('2026-06-24', '22:00', 'BRA'): 'GC-MD3a',
+              ('2026-06-24', '22:00', 'MAR'): 'GC-MD3b',
+              # Group D
+              ('2026-06-13', '01:00', 'USA'): 'GD-MD1a',
+              ('2026-06-14', '04:00', 'AUS'): 'GD-MD1b',
+              ('2026-06-19', '19:00', 'USA'): 'GD-MD2a',
+              ('2026-06-20', '03:00', 'PAR'): 'GD-MD2b',
+              ('2026-06-26', '02:00', 'USA'): 'GD-MD3a',
+              ('2026-06-26', '02:00', 'PAR'): 'GD-MD3b',
+              # Group E
+              ('2026-06-14', '17:00', 'GER'): 'GE-MD1a',
+              ('2026-06-14', '23:00', 'CIV'): 'GE-MD1b',
+              ('2026-06-20', '20:00', 'GER'): 'GE-MD2a',
+              ('2026-06-21', '00:00', 'ECU'): 'GE-MD2b',
+              ('2026-06-25', '20:00', 'GER'): 'GE-MD3a',
+              ('2026-06-25', '20:00', 'CUW'): 'GE-MD3b',
+              # Group F
+              ('2026-06-14', '20:00', 'NED'): 'GF-MD1a',
+              ('2026-06-15', '02:00', 'SWE'): 'GF-MD1b',
+              ('2026-06-20', '17:00', 'NED'): 'GF-MD2a',
+              ('2026-06-21', '04:00', 'JPN'): 'GF-MD2b',
+              ('2026-06-25', '23:00', 'NED'): 'GF-MD3a',
+              ('2026-06-25', '23:00', 'JPN'): 'GF-MD3b',
+              # Group G
+              ('2026-06-15', '19:00', 'BEL'): 'GG-MD1a',
+              ('2026-06-16', '01:00', 'IRN'): 'GG-MD1b',
+              ('2026-06-21', '19:00', 'BEL'): 'GG-MD2a',
+              ('2026-06-22', '01:00', 'EGY'): 'GG-MD2b',
+              ('2026-06-27', '03:00', 'BEL'): 'GG-MD3a',
+              ('2026-06-27', '03:00', 'EGY'): 'GG-MD3b',
+              # Group H
+              ('2026-06-15', '16:00', 'ESP'): 'GH-MD1a',
+              ('2026-06-15', '22:00', 'KSA'): 'GH-MD1b',
+              ('2026-06-21', '16:00', 'ESP'): 'GH-MD2a',
+              ('2026-06-21', '22:00', 'CPV'): 'GH-MD2b',
+              ('2026-06-27', '00:00', 'ESP'): 'GH-MD3a',
+              ('2026-06-27', '00:00', 'CPV'): 'GH-MD3b',
+              # Group I
+              ('2026-06-16', '19:00', 'FRA'): 'GI-MD1a',
+              ('2026-06-16', '22:00', 'IRQ'): 'GI-MD1b',
+              ('2026-06-22', '21:00', 'FRA'): 'GI-MD2a',
+              ('2026-06-23', '00:00', 'SEN'): 'GI-MD2b',
+              ('2026-06-26', '19:00', 'FRA'): 'GI-MD3a',
+              ('2026-06-26', '19:00', 'SEN'): 'GI-MD3b',
+              # Group J
+              ('2026-06-17', '01:00', 'ARG'): 'GJ-MD1a',
+              ('2026-06-17', '04:00', 'AUT'): 'GJ-MD1b',
+              ('2026-06-22', '17:00', 'ARG'): 'GJ-MD2a',
+              ('2026-06-23', '03:00', 'ALG'): 'GJ-MD2b',
+              ('2026-06-28', '02:00', 'ARG'): 'GJ-MD3a',
+              ('2026-06-28', '02:00', 'ALG'): 'GJ-MD3b',
+              # Group K
+              ('2026-06-17', '17:00', 'POR'): 'GK-MD1a',
+              ('2026-06-18', '02:00', 'UZB'): 'GK-MD1b',
+              ('2026-06-23', '17:00', 'POR'): 'GK-MD2a',
+              ('2026-06-24', '02:00', 'COD'): 'GK-MD2b',
+              ('2026-06-27', '23:30', 'POR'): 'GK-MD3a',
+              ('2026-06-27', '23:30', 'COD'): 'GK-MD3b',
+              # Group L
+              ('2026-06-17', '20:00', 'ENG'): 'GL-MD1a',
+              ('2026-06-17', '23:00', 'GHA'): 'GL-MD1b',
+              ('2026-06-23', '20:00', 'ENG'): 'GL-MD2a',
+              ('2026-06-23', '23:00', 'CRO'): 'GL-MD2b',
+              ('2026-06-27', '21:00', 'ENG'): 'GL-MD3a',
+              ('2026-06-27', '21:00', 'CRO'): 'GL-MD3b',
+          }
+
+          # Knockout matches: (date, utc_time) -> internal_id (each timeslot is unique)
+          KO_LOOKUP = {
+              ('2026-06-28', '19:00'): 'M73',
+              ('2026-06-29', '20:30'): 'M74',
+              ('2026-06-30', '01:00'): 'M75',
+              ('2026-06-29', '17:00'): 'M76',
+              ('2026-06-30', '21:00'): 'M77',
+              ('2026-06-30', '17:00'): 'M78',
+              ('2026-07-01', '01:00'): 'M79',
+              ('2026-07-01', '16:00'): 'M80',
+              ('2026-07-02', '00:00'): 'M81',
+              ('2026-07-01', '20:00'): 'M82',
+              ('2026-07-02', '23:00'): 'M83',
+              ('2026-07-02', '19:00'): 'M84',
+              ('2026-07-03', '03:00'): 'M85',
+              ('2026-07-03', '22:00'): 'M86',
+              ('2026-07-04', '01:30'): 'M87',
+              ('2026-07-03', '18:00'): 'M88',
+              ('2026-07-04', '21:00'): 'M89',
+              ('2026-07-04', '17:00'): 'M90',
+              ('2026-07-05', '20:00'): 'M91',
+              ('2026-07-06', '00:00'): 'M92',
+              ('2026-07-06', '19:00'): 'M93',
+              ('2026-07-07', '00:00'): 'M94',
+              ('2026-07-07', '16:00'): 'M95',
+              ('2026-07-07', '20:00'): 'M96',
+              ('2026-07-09', '20:00'): 'M97',
+              ('2026-07-10', '19:00'): 'M98',
+              ('2026-07-11', '21:00'): 'M99',
+              ('2026-07-12', '01:00'): 'M100',
+              ('2026-07-14', '19:00'): 'M101',
+              ('2026-07-15', '19:00'): 'M102',
+              ('2026-07-18', '21:00'): 'M103',
+              ('2026-07-19', '19:00'): 'M104',
+          }
 
           STATUS_MAP = {
               'SCHEDULED': 'upcoming',
@@ -68,21 +192,53 @@ jobs:
               'POSTPONED': 'upcoming',
           }
 
+          url = 'https://api.football-data.org/v4/competitions/WC/matches'
+          req = urllib.request.Request(url, headers={'X-Auth-Token': API_KEY})
+
+          try:
+              with urllib.request.urlopen(req, timeout=15) as resp:
+                  api_data = json.loads(resp.read())
+          except urllib.error.URLError as e:
+              print(f'API fetch failed: {e}')
+              sys.exit(1)
+
           updated = False
+          unmatched = []
+
           for m in api_data.get('matches', []):
-              mid = str(m.get('id'))
+              utc_date_str = m.get('utcDate', '')
+              try:
+                  dt = datetime.fromisoformat(utc_date_str.replace('Z', '+00:00'))
+                  date_key = dt.strftime('%Y-%m-%d')
+                  time_key = dt.strftime('%H:%M')
+              except Exception:
+                  continue
+
+              home_tla_raw = m.get('homeTeam', {}).get('tla', '') or ''
+              home_tla = TLA_NORM.get(home_tla_raw.upper(), home_tla_raw.upper())
+
+              internal_id = GROUP_LOOKUP.get((date_key, time_key, home_tla))
+              if not internal_id:
+                  internal_id = KO_LOOKUP.get((date_key, time_key))
+              if not internal_id:
+                  unmatched.append(f'{date_key} {time_key} home={home_tla_raw}')
+                  continue
+
               status = STATUS_MAP.get(m.get('status', ''), 'upcoming')
               score = m.get('score', {})
               full = score.get('fullTime', {})
               s1 = full.get('home')
               s2 = full.get('away')
 
-              entry = data['matches'].get(mid, {})
+              entry = data['matches'].get(internal_id, {})
               new_entry = {'score1': s1, 'score2': s2, 'status': status}
 
               if entry != new_entry:
-                  data['matches'][mid] = new_entry
+                  data['matches'][internal_id] = new_entry
                   updated = True
+
+          if unmatched:
+              print(f'Warning: {len(unmatched)} unmatched API matches: {unmatched[:5]}')
 
           if updated:
               data['lastUpdated'] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
