@@ -371,15 +371,21 @@
 
   function buildBracketRound(label, matchupGroups, koMap, side, numMatchups) {
     var roundEl = el('div', 'bracket-round');
+    if (label === 'Semi-finals') roundEl.classList.add('no-connector');
     var hdr = el('div', 'round-header'); hdr.textContent = label;
     roundEl.appendChild(hdr);
 
     var matchesWrap = el('div', 'round-matches');
     matchupGroups.forEach(function (pair) {
       var matchup = el('div', 'matchup');
+      if (pair.length === 1) matchup.classList.add('single');
       pair.forEach(function (id) {
         var m = koMap[id];
-        if (m) matchup.appendChild(buildMatchCard(m, 'ko'));
+        if (m) {
+          var wrap = el('div', 'card-wrap');
+          wrap.appendChild(buildMatchCard(m, 'ko'));
+          matchup.appendChild(wrap);
+        }
       });
       matchesWrap.appendChild(matchup);
     });
@@ -389,6 +395,8 @@
 
   function buildMatchCard(m, type) {
     var card = el('div', 'match-card');
+    var status = m.status || (m.score1 !== null && m.score2 !== null ? 'finished' : 'upcoming');
+    card.classList.add('card-' + status);
 
     var t1info = resolveKoTeam(m.team1, m.team1Label);
     var t2info = resolveKoTeam(m.team2, m.team2Label);
@@ -409,7 +417,9 @@
     timeEl.textContent = formatMatchTime(m.date, m.utc, state.tz, m.est);
     var venueEl = el('span', 'match-card-venue-sm');
     venueEl.textContent = m.city !== 'TBD' ? m.city : '';
-    footer.appendChild(noEl); footer.appendChild(timeEl); footer.appendChild(venueEl);
+    footer.appendChild(noEl);
+    if (status === 'live') { var dot = el('span', 'card-live-dot'); footer.appendChild(dot); }
+    footer.appendChild(timeEl); footer.appendChild(venueEl);
     card.appendChild(footer);
     return card;
   }
