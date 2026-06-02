@@ -21,6 +21,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: claude/world-cup-progress-chart-2tPSj
 
       - name: Fetch results from football-data.org
         env:
@@ -100,5 +102,5 @@ jobs:
             echo "Nothing to commit."
           else
             git commit -m "chore: update World Cup 2026 results [skip ci]"
-            git push
+            git push origin claude/world-cup-progress-chart-2tPSj
           fi
