@@ -2,15 +2,15 @@ name: Update World Cup 2026 Results
 
 on:
   schedule:
-    # Every 20 minutes from 11:00 UTC to 04:00 UTC (covers all match windows)
-    - cron: '*/20 11-23 11 6 *'   # June 11
-    - cron: '*/20 0-4  12 6 *'
-    - cron: '*/20 11-23 12-27 6 *' # June 12-27 group stage
-    - cron: '*/20 0-4  13-28 6 *'
-    - cron: '*/20 11-23 28-30 6 *' # June 28-30 R32
-    - cron: '*/20 0-4  29-30 6 *'
-    - cron: '*/20 11-23 1-19 7 *'  # July 1-19 knockouts + final
-    - cron: '*/20 0-4  2-20 7 *'
+    # Every 5 minutes (GitHub's minimum) during match windows (UTC)
+    - cron: '*/5 11-23 11 6 *'    # June 11
+    - cron: '*/5 0-4  12 6 *'
+    - cron: '*/5 11-23 12-27 6 *' # June 12-27 group stage
+    - cron: '*/5 0-4  13-28 6 *'
+    - cron: '*/5 11-23 28-30 6 *' # June 28-30 R32
+    - cron: '*/5 0-4  29-30 6 *'
+    - cron: '*/5 11-23 1-19 7 *'  # July 1-19 knockouts + final
+    - cron: '*/5 0-4  2-20 7 *'
   workflow_dispatch:
 
 jobs:
