@@ -359,10 +359,10 @@
     center.appendChild(thirdLbl);
     center.appendChild(thirdCard);
 
-    rightHalf.appendChild(buildBracketRound('Semi-finals',   rightSF,  koMap, 'right', 1));
-    rightHalf.appendChild(buildBracketRound('Quarter-finals', rightQF,  koMap, 'right', 1));
+    rightHalf.appendChild(buildBracketRound('Round of 32',    rightR32, koMap, 'right', 4));
     rightHalf.appendChild(buildBracketRound('Round of 16',   rightR16, koMap, 'right', 2));
-    rightHalf.appendChild(buildBracketRound('Round of 32',   rightR32, koMap, 'right', 4));
+    rightHalf.appendChild(buildBracketRound('Quarter-finals', rightQF,  koMap, 'right', 1));
+    rightHalf.appendChild(buildBracketRound('Semi-finals',   rightSF,  koMap, 'right', 1));
 
     root.appendChild(leftHalf);
     root.appendChild(center);

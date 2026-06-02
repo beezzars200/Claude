@@ -326,7 +326,7 @@ body {
   align-items: stretch;
 }
 .bracket-half.left  { flex-direction: row; }
-.bracket-half.right { flex-direction: row; }
+.bracket-half.right { flex-direction: row-reverse; }
 
 .bracket-round {
   display: flex;
