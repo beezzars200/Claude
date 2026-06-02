@@ -423,7 +423,7 @@
 
     var nameEl = el('span', 'cname');
     if (teamInfo) { nameEl.textContent = teamInfo.name; nameEl.classList.add('known'); }
-    else { nameEl.textContent = label || '?'; }
+    else { nameEl.textContent = formatLabel(label); }
 
     var scoreEl = el('span', 'cscore');
     scoreEl.textContent = score !== null ? score : '';
@@ -434,16 +434,29 @@
     return row;
   }
 
+  function formatLabel(label) {
+    if (!label) return '?';
+    // "1A" → "1st Group A", "2B" → "2nd Group B"
+    var posMatch = label.match(/^([12])([A-L])$/);
+    if (posMatch) return (posMatch[1] === '1' ? '1st' : '2nd') + ' Group ' + posMatch[2];
+    // "W-74" → "Win M74", "L-101" → "Los M101"
+    var winMatch = label.match(/^W-(\d+)$/);
+    if (winMatch) return 'Win M' + winMatch[1];
+    var lossMatch = label.match(/^L-(\d+)$/);
+    if (lossMatch) return 'Loss M' + lossMatch[1];
+    if (label === 'best 3rd') return 'Best 3rd';
+    return label;
+  }
+
   function resolveKoTeam(teamObj, label) {
     if (teamObj && teamObj.code) return teamObj;
     if (!label) return null;
-    // Try to resolve from standings e.g. "1A", "2C"
     var posMatch = label.match(/^([12])([A-L])$/);
     if (posMatch) {
       var pos = parseInt(posMatch[1], 10);
       var grp = posMatch[2];
       var st = state.standings[grp];
-      if (st && st.rows.length >= pos) return st.rows[pos - 1].team;
+      if (st && st.complete && st.rows.length >= pos) return st.rows[pos - 1].team;
     }
     return null;
   }
@@ -569,8 +582,8 @@
     if (m.roundType === 'group') {
       t1 = m.team1; t2 = m.team2; s1 = m.score1; s2 = m.score2;
     } else {
-      t1 = resolveKoTeam(m.team1, m.team1Label) || { flag: '', name: m.team1Label || '?', code: null };
-      t2 = resolveKoTeam(m.team2, m.team2Label) || { flag: '', name: m.team2Label || '?', code: null };
+      t1 = resolveKoTeam(m.team1, m.team1Label) || { flag: '', name: formatLabel(m.team1Label), code: null };
+      t2 = resolveKoTeam(m.team2, m.team2Label) || { flag: '', name: formatLabel(m.team2Label), code: null };
       s1 = m.score1; s2 = m.score2;
     }
     var t1win = s1 !== null && s2 !== null && s1 > s2;
