@@ -1,4 +1,525 @@
 {
-  "lastUpdated": "2026-06-01T00:00:00Z",
-  "matches": {}
+  "lastUpdated": "2026-06-11T14:43:47Z",
+  "matches": {
+    "537327": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537328": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537333": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537345": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537334": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537339": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537340": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537346": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537351": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537357": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537352": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537358": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537369": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537363": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537370": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537364": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537391": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537392": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537397": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537398": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537403": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537409": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537410": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537404": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537329": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537335": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537336": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537330": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537348": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537342": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537341": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537347": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537359": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537353": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537354": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537360": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537371": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537365": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537372": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537366": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537399": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537393": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537394": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537400": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537405": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537411": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537412": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537406": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537337": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537338": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537344": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537343": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537331": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537332": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537355": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537356": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537361": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537362": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537349": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537350": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537395": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537396": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537373": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537374": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537367": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537368": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537413": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537414": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537407": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537408": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537401": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537402": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537417": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537423": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537415": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537418": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537424": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537416": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537425": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537426": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537422": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537421": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537420": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537419": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537429": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537428": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537427": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537430": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537376": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537375": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537377": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537378": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537379": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537380": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537381": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537382": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537383": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537384": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537385": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537386": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537387": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537388": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537389": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    },
+    "537390": {
+      "score1": null,
+      "score2": null,
+      "status": "upcoming"
+    }
+  }
 }
