@@ -5,7 +5,7 @@ enum MessageSource: String, Codable {
     case whatsapp = "whatsapp"
 }
 
-struct StudioMessage: Identifiable, Equatable {
+struct StudioMessage: Identifiable, Equatable, Hashable {
     let id: Int
     let name: String
     let song: String
@@ -15,6 +15,7 @@ struct StudioMessage: Identifiable, Equatable {
     let source: MessageSource
 
     static func == (lhs: StudioMessage, rhs: StudioMessage) -> Bool { lhs.id == rhs.id }
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }
 
 // MARK: - Codable bridge

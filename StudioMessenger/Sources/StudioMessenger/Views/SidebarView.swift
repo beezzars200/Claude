@@ -38,7 +38,7 @@ struct SidebarView: View {
             .frame(width: 30, height: 30)
             .cornerRadius(6)
 
-            Text(appState.theme.displayName)
+            Text(appState.theme.rawValue)
                 .font(.system(size: 13, weight: .bold, design: .rounded))
                 .foregroundColor(appState.theme.accent)
 
