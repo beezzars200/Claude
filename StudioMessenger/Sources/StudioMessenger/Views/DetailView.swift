@@ -121,29 +121,40 @@ struct MessageDetailView: View {
     // MARK: Scrollable body
     private var messageBody: some View {
         ScrollView {
-            VStack(alignment: .trailing, spacing: 16) {
+            VStack(alignment: .leading, spacing: 14) {
                 // Date stamp
                 Text(message.createdAt.formatted(date: .complete, time: .omitted))
                     .font(.system(size: 11))
                     .foregroundColor(appState.theme.textDim)
                     .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.top, 8)
+                    .padding(.top, 12)
 
                 // Song request card (if any)
                 if !message.song.isEmpty && message.song != "DJ Choice" {
                     songRequestCard
                 }
 
-                // Message bubble
-                HStack(alignment: .bottom, spacing: 6) {
-                    Spacer(minLength: 80)
+                // Message bubble — left-aligned (incoming from listener)
+                HStack(alignment: .bottom, spacing: 8) {
+                    ZStack {
+                        Circle()
+                            .fill(appState.theme.accentDim)
+                            .frame(width: 28, height: 28)
+                        Text(String(message.name.prefix(1)).uppercased())
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundColor(appState.theme.accent)
+                    }
                     MessageBubbleView(text: message.message)
+                    Spacer(minLength: 60)
                 }
 
-                Spacer(minLength: 20)
+                Text(message.createdAt.formatted(date: .omitted, time: .shortened))
+                    .font(.system(size: 10))
+                    .foregroundColor(appState.theme.textDim)
+                    .padding(.leading, 36)
             }
             .padding(.horizontal, 20)
-            .padding(.bottom, 20)
+            .padding(.bottom, 24)
         }
         .background(appState.theme.bgPrimary)
     }
@@ -190,14 +201,14 @@ struct MessageBubbleView: View {
     var body: some View {
         Text(text)
             .font(.system(size: 14))
-            .foregroundColor(.white)
+            .foregroundColor(appState.theme.textPrimary)
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
-            .background(appState.theme.bubbleGradient)
+            .background(appState.theme.bgCard)
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(appState.theme.accent.opacity(0.2), lineWidth: 0.5)
+                    .stroke(appState.theme.accent.opacity(0.25), lineWidth: 1)
             )
     }
 }

@@ -17,7 +17,7 @@ class AppState: ObservableObject {
             case .idle:         return "Waiting"
             case .fetching:     return "Refreshing…"
             case .ok:           return "Live"
-            case .error(let e): return "⚠️ \(e)"
+            case .error:        return "Connection error"
             }
         }
     }
@@ -67,7 +67,6 @@ class AppState: ObservableObject {
     // Subsequent polls — only fetch new entries
     private func fetchIncremental() {
         Task {
-            connectionStatus = .fetching
             do {
                 let fetched = try await service.fetch(since: maxID)
                 if !fetched.isEmpty {
@@ -82,7 +81,7 @@ class AppState: ObservableObject {
                 lastUpdated = Date()
                 connectionStatus = .ok
             } catch {
-                connectionStatus = .error(error.localizedDescription)
+                // Transient polling failure — don't surface to UI, will retry in 5s
             }
         }
     }
