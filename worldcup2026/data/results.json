@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-06-30T21:17:12Z",
+  "lastUpdated": "2026-06-30T22:41:35Z",
   "matches": {
     "537327": {
       "score1": 2,
@@ -382,12 +382,12 @@
       "status": "finished"
     },
     "537424": {
-      "score1": null,
-      "score2": null,
-      "status": "upcoming"
+      "score1": 1,
+      "score2": 2,
+      "status": "finished"
     },
     "537416": {
-      "score1": 0,
+      "score1": 3,
       "score2": 0,
       "status": "live"
     },
