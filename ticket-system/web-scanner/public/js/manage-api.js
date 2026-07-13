@@ -23,6 +23,7 @@ const API = (() => {
     updateEvent: (id, data) => request('PUT', `/events/${id}`, data),
     deleteEvent: (id) => request('DELETE', `/events/${id}`),
     importAttendees: (eventId, attendees) => request('POST', `/events/${eventId}/import`, { attendees }),
+    clearTickets: (eventId) => request('DELETE', `/events/${eventId}/tickets`),
     getTickets: (eventId) => request('GET', `/events/${eventId}/tickets`),
     getStats: (eventId) => request('GET', `/events/${eventId}/stats`),
     getAdminUsers: () => request('GET', '/admin-users'),

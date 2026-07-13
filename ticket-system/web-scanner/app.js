@@ -11,16 +11,24 @@ const port = process.env.PORT || 3000;
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
+app.set('trust proxy', 1); // behind Railway's HTTPS proxy
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(cors({ origin: true, credentials: true }));
+// No credentials: cross-origin callers (Electron) authenticate with x-api-key,
+// so browsers can never send the admin session cookie cross-site
+app.use(cors({ origin: true, credentials: false }));
+
+if (!process.env.SESSION_SECRET) {
+  console.warn('WARNING: SESSION_SECRET is not set — using an insecure fallback. Set it in your environment.');
+}
 app.use(session({
   secret: process.env.SESSION_SECRET || 'changeme-in-production',
   resave: false,
   saveUninitialized: false,
   store: new MySQLStore({ expiration: 86400000, createDatabaseTable: true }, db),
-  cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 }
+  // secure:'auto' marks the cookie Secure on HTTPS (honours trust proxy), stays off for local http dev
+  cookie: { secure: 'auto', sameSite: 'lax', maxAge: 24 * 60 * 60 * 1000 }
 }));
 
 async function initDb() {

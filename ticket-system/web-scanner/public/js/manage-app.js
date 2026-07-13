@@ -46,13 +46,55 @@ function parseCSVLine(line) {
 }
 
 function findCol(row, ...patterns) {
-  for (const key of Object.keys(row)) {
-    const lk = key.toLowerCase();
-    for (const pattern of patterns) {
-      if (lk.includes(pattern.toLowerCase())) return row[key] || '';
-    }
+  const keys = Object.keys(row);
+  // Exact header match first, in pattern priority order
+  for (const pattern of patterns) {
+    const p = pattern.toLowerCase();
+    const key = keys.find(k => k.toLowerCase().trim() === p);
+    if (key) return row[key] || '';
+  }
+  // Then substring match, still in pattern priority order
+  for (const pattern of patterns) {
+    const p = pattern.toLowerCase();
+    const key = keys.find(k => k.toLowerCase().includes(p));
+    if (key) return row[key] || '';
   }
   return '';
+}
+
+function findName(row) {
+  const keys = Object.keys(row);
+  const lower = k => k.toLowerCase().trim();
+  // Direct name column
+  const direct = keys.find(k => ['name', 'full name', 'attendee name', 'guest name', 'attendee', 'guest'].includes(lower(k)));
+  if (direct && row[direct]) return row[direct];
+  // Separate first/last name columns
+  const first = keys.find(k => lower(k).includes('first name') || lower(k) === 'first');
+  const last = keys.find(k => lower(k).includes('last name') || lower(k).includes('surname') || lower(k) === 'last');
+  if (first || last) {
+    const combined = [first ? row[first] : '', last ? row[last] : ''].filter(Boolean).join(' ').trim();
+    if (combined) return combined;
+  }
+  // Fallback: any "name" column that isn't company/org/event/ticket related
+  const fallback = keys.find(k => {
+    const lk = lower(k);
+    return lk.includes('name') && !/(compan|organis|organiz|business|event|ticket|user|file)/.test(lk);
+  });
+  return fallback ? row[fallback] || '' : '';
+}
+
+function findTicketCount(row) {
+  const patterns = ['no of tickets', 'no. of tickets', 'number of tickets', 'ticket count', 'tickets', 'ticket qty', 'qty', 'quantity', 'ticket'];
+  const keys = Object.keys(row);
+  for (const pattern of patterns) {
+    for (const key of keys) {
+      if (!key.toLowerCase().includes(pattern)) continue;
+      const raw = String(row[key] ?? '').trim();
+      // Only accept a plain number — skips columns like "Ticket Type: VIP"
+      if (/^\d+$/.test(raw)) return Math.max(1, parseInt(raw, 10));
+    }
+  }
+  return 1;
 }
 
 // ── File Pickers ───────────────────────────────────────
@@ -471,7 +513,7 @@ document.getElementById('pick-csv').addEventListener('click', async () => {
   if (!csvText) return;
   document.getElementById('csv-file-name').textContent = 'File loaded';
 
-  const lines = csvText.trim().split(/\r?\n/).filter(l => l.trim());
+  const lines = csvText.replace(/^\uFEFF/, '').trim().split(/\r?\n/).filter(l => l.trim());
   const headers = parseCSVLine(lines[0]).map(h => h.replace(/^["']|["']$/g, '').trim().toLowerCase());
 
   parsedAttendees = lines.slice(1)
@@ -480,11 +522,11 @@ document.getElementById('pick-csv').addEventListener('click', async () => {
       const row = {};
       headers.forEach((h, i) => row[h] = (vals[i] || '').replace(/^["']|["']$/g, '').trim());
       return {
-        name: findCol(row, 'name'),
-        email: findCol(row, 'email'),
-        mobile: findCol(row, 'mobile', 'phone', 'tel'),
-        company: findCol(row, 'company', 'organisation', 'organization'),
-        tickets: Math.max(1, parseInt(findCol(row, 'ticket', 'qty', 'quantity', 'no of', 'number of') || '1') || 1)
+        name: findName(row),
+        email: findCol(row, 'email', 'e-mail'),
+        mobile: findCol(row, 'mobile', 'phone', 'telephone', 'cell', 'tel'),
+        company: findCol(row, 'company', 'organisation', 'organization', 'business'),
+        tickets: findTicketCount(row)
       };
     })
     .filter(a => a.name && a.name.trim().length > 0 && !/^(name|full name)$/i.test(a.name.trim()));
@@ -504,10 +546,29 @@ document.getElementById('pick-csv').addEventListener('click', async () => {
   document.getElementById('import-btn').disabled = false;
 });
 
+document.getElementById('clear-tickets-btn').addEventListener('click', async () => {
+  const sel = document.getElementById('import-event');
+  const eventId = sel.value;
+  if (!eventId) return showToast('Select an event first', 'error');
+  const eventName = sel.options[sel.selectedIndex]?.textContent || 'this event';
+  try {
+    const stats = await API.getStats(eventId);
+    if (!stats.total) return showToast('No tickets to clear for this event', 'info');
+    if (!confirm(`Delete ALL ${stats.total} tickets and attendees for ${eventName}? Already-generated PDF tickets will stop scanning. This cannot be undone.`)) return;
+    await API.clearTickets(eventId);
+    showToast('Tickets cleared', 'success');
+  } catch (e) { showToast(e.message, 'error'); }
+});
+
 document.getElementById('import-btn').addEventListener('click', async () => {
   const eventId = document.getElementById('import-event').value;
   const btn = document.getElementById('import-btn');
   const result = document.getElementById('import-result');
+  // Guard against accidental double import
+  try {
+    const stats = await API.getStats(eventId);
+    if (stats.total > 0 && !confirm(`This event already has ${stats.total} tickets. Importing will ADD ${parsedAttendees.length} more attendees on top — it will not replace the existing ones. Continue?`)) return;
+  } catch (e) {}
   btn.disabled = true; btn.textContent = 'Importing…';
   try {
     const res = await API.importAttendees(eventId, parsedAttendees);

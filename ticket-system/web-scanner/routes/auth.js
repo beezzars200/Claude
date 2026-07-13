@@ -25,7 +25,9 @@ router.post('/login', async (req, res) => {
         return res.redirect(user.organisation_id ? '/admin' : '/manage');
       }
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('Login: DB lookup failed, falling back to env admin:', e.message);
+  }
 
   // Fallback: env var super admin
   if (username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD) {

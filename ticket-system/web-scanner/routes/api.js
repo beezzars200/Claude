@@ -10,10 +10,22 @@ const requireApiKey = (req, res, next) => {
   return res.status(401).json({ error: 'Unauthorized' });
 };
 
-// ── Scan (no API key — door scanner) ──────────────────
-router.post('/scan/:ticketNumber', async (req, res) => {
+// ── Scan (door scanner — requires a logged-in scanner session or API key) ──
+const requireScanAuth = (req, res, next) => {
+  if (req.session && req.session.authenticated) return next();
+  const key = req.headers['x-api-key'];
+  if (key && key === process.env.API_KEY) return next();
+  return res.status(401).json({ valid: false, message: 'Not authenticated — please log in again' });
+};
+
+router.post('/scan/:ticketNumber', requireScanAuth, async (req, res) => {
+  // Atomic claim: with two scanners hitting the same ticket at once, only one wins
+  const [result] = await db.query(
+    'UPDATE tickets SET scanned = 1, scanned_at = NOW() WHERE ticket_number = ? AND scanned = 0',
+    [req.params.ticketNumber]
+  );
   const [rows] = await db.query(
-    `SELECT t.*, a.name, a.company, e.name as event_name, e.primary_color, e.accent_color
+    `SELECT t.*, a.name, a.company, e.name as event_name
      FROM tickets t
      JOIN attendees a ON t.attendee_id = a.id
      JOIN events e ON t.event_id = e.id
@@ -22,10 +34,9 @@ router.post('/scan/:ticketNumber', async (req, res) => {
   );
   if (!rows.length) return res.json({ valid: false, message: 'Ticket not found' });
   const ticket = rows[0];
-  if (ticket.scanned) {
+  if (!result.affectedRows) {
     return res.json({ valid: false, alreadyUsed: true, name: ticket.name, company: ticket.company, event: ticket.event_name, scannedAt: ticket.scanned_at, message: 'Ticket already used' });
   }
-  await db.query('UPDATE tickets SET scanned = 1, scanned_at = NOW() WHERE ticket_number = ?', [req.params.ticketNumber]);
   return res.json({ valid: true, name: ticket.name, company: ticket.company, event: ticket.event_name, ticketNumber: ticket.ticket_number, message: 'Welcome!' });
 });
 
@@ -99,10 +110,10 @@ router.put('/events/:id', requireApiKey, async (req, res) => {
     const { organisation_id, name, event_date, event_time, venue, slug, logo_url, primary_color, secondary_color, accent_color, is_active } = req.body;
     await db.query(
       `UPDATE events SET organisation_id=?, name=?, event_date=?, event_time=?, venue=?, slug=?, logo_url=?,
-       primary_color=?, secondary_color=?, accent_color=?, is_active=? WHERE id=?`,
+       primary_color=?, secondary_color=?, accent_color=?, is_active=COALESCE(?, is_active) WHERE id=?`,
       [organisation_id, name, event_date, event_time || null, venue, slug, logo_url || null,
        primary_color || '#0a0a0a', secondary_color || '#ffffff', accent_color || '#e50000',
-       is_active !== undefined ? is_active : 1, req.params.id]
+       is_active !== undefined ? is_active : null, req.params.id]
     );
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
