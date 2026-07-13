@@ -135,12 +135,20 @@ function renderDashboard() {
 document.getElementById('dashboard-org-filter').addEventListener('change', renderDashboard);
 
 // ── Organisations ──────────────────────────────────────
+let loadedOrgs = [];
+let currentOrgEditId = null;
+
 async function loadOrgsList() {
   const list = document.getElementById('orgs-list');
   try {
-    const orgs = await API.getOrganisations();
-    list.innerHTML = orgs.length ? orgs.map(o => `
-      <div class="list-card">
+    loadedOrgs = await API.getOrganisations();
+    list.innerHTML = loadedOrgs.length ? loadedOrgs.map(o => `
+      <div class="list-card" data-org-id="${o.id}">
+        <div class="card-logo-wrap">
+          ${o.logo_url
+            ? `<img class="card-logo" alt="">`
+            : `<div class="card-logo-placeholder">${o.name.charAt(0).toUpperCase()}</div>`}
+        </div>
         <div class="list-card-main">
           <strong>${o.name}</strong>
           <span class="muted">/${o.slug}</span>
@@ -150,13 +158,51 @@ async function loadOrgsList() {
             <span class="dot" style="background:${o.primary_color}" title="Primary"></span>
             <span class="dot" style="background:${o.accent_color}" title="Accent"></span>
           </div>
+          <button class="btn btn-sm" data-action="edit-org" data-id="${o.id}">Edit</button>
           <button class="btn btn-sm btn-danger" data-action="delete-org" data-id="${o.id}" data-name="${o.name.replace(/"/g, '&quot;')}">Delete</button>
         </div>
       </div>`).join('')
       : '<div class="empty-card"><p class="muted">No organisations yet.</p></div>';
+    list.querySelectorAll('.list-card[data-org-id]').forEach(card => {
+      const org = loadedOrgs.find(o => o.id == card.dataset.orgId);
+      if (org?.logo_url) { const img = card.querySelector('.card-logo'); if (img) img.src = org.logo_url; }
+    });
   } catch (e) {
     list.innerHTML = `<div class="empty-card"><p class="error">${e.message}</p></div>`;
   }
+}
+
+function fillOrgForm(org) {
+  currentOrgEditId = org.id;
+  document.getElementById('org-form-container').querySelector('h3').textContent = 'Edit Organisation';
+  document.getElementById('save-org').textContent = 'Save Changes';
+  document.getElementById('org-name').value = org.name || '';
+  document.getElementById('org-slug').value = org.slug || '';
+  document.getElementById('org-primary').value = org.primary_color || '#0a0a0a';
+  document.getElementById('org-accent').value = org.accent_color || '#e50000';
+  document.getElementById('org-secondary').value = org.secondary_color || '#ffffff';
+  document.getElementById('org-logo-data').value = org.logo_url || '';
+  const preview = document.getElementById('org-logo-preview');
+  if (org.logo_url) {
+    preview.src = org.logo_url; preview.classList.remove('hidden');
+    document.getElementById('org-logo-name').textContent = 'Current logo';
+  } else {
+    preview.classList.add('hidden');
+    document.getElementById('org-logo-name').textContent = 'No file chosen';
+  }
+  document.getElementById('org-form-container').classList.remove('hidden');
+}
+
+function resetOrgForm() {
+  currentOrgEditId = null;
+  document.getElementById('org-form-container').querySelector('h3').textContent = 'New Organisation';
+  document.getElementById('save-org').textContent = 'Save Organisation';
+  document.getElementById('org-name').value = '';
+  document.getElementById('org-slug').value = '';
+  document.getElementById('org-logo-data').value = '';
+  document.getElementById('org-logo-preview').classList.add('hidden');
+  document.getElementById('org-logo-name').textContent = 'No file chosen';
+  document.getElementById('org-form-container').classList.add('hidden');
 }
 
 async function deleteOrg(id, name) {
@@ -170,17 +216,30 @@ async function deleteOrg(id, name) {
 
 document.getElementById('orgs-list').addEventListener('click', e => {
   const btn = e.target.closest('[data-action]');
-  if (btn?.dataset.action === 'delete-org') deleteOrg(btn.dataset.id, btn.dataset.name);
+  if (btn) {
+    if (btn.dataset.action === 'delete-org') deleteOrg(btn.dataset.id, btn.dataset.name);
+    if (btn.dataset.action === 'edit-org') {
+      const org = loadedOrgs.find(o => o.id == btn.dataset.id);
+      if (org) fillOrgForm(org);
+    }
+    return;
+  }
+  const card = e.target.closest('.list-card[data-org-id]');
+  if (card) {
+    const org = loadedOrgs.find(o => o.id == card.dataset.orgId);
+    if (org) fillOrgForm(org);
+  }
 });
 
 document.getElementById('show-add-org').addEventListener('click', () => {
+  resetOrgForm();
   document.getElementById('org-form-container').classList.remove('hidden');
 });
-document.getElementById('cancel-org').addEventListener('click', () => {
-  document.getElementById('org-form-container').classList.add('hidden');
-});
+document.getElementById('cancel-org').addEventListener('click', resetOrgForm);
 document.getElementById('org-name').addEventListener('input', e => {
-  document.getElementById('org-slug').value = e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  if (!currentOrgEditId) {
+    document.getElementById('org-slug').value = e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  }
 });
 document.getElementById('pick-org-logo').addEventListener('click', async () => {
   const data = await window.electronAPI.openImage();
@@ -194,23 +253,30 @@ document.getElementById('save-org').addEventListener('click', async () => {
   const name = document.getElementById('org-name').value.trim();
   const slug = document.getElementById('org-slug').value.trim();
   if (!name || !slug) return showToast('Name and slug required', 'error');
+  const data = {
+    name, slug,
+    logo_url: document.getElementById('org-logo-data').value || null,
+    primary_color: document.getElementById('org-primary').value,
+    accent_color: document.getElementById('org-accent').value,
+    secondary_color: document.getElementById('org-secondary').value
+  };
   try {
-    await API.createOrganisation({
-      name, slug,
-      logo_url: document.getElementById('org-logo-data').value || null,
-      primary_color: document.getElementById('org-primary').value,
-      accent_color: document.getElementById('org-accent').value,
-      secondary_color: document.getElementById('org-secondary').value
-    });
-    showToast('Organisation saved', 'success');
-    document.getElementById('org-form-container').classList.add('hidden');
-    document.getElementById('org-name').value = '';
-    document.getElementById('org-slug').value = '';
+    if (currentOrgEditId) {
+      await API.updateOrganisation(currentOrgEditId, data);
+      showToast('Organisation updated', 'success');
+    } else {
+      await API.createOrganisation(data);
+      showToast('Organisation saved', 'success');
+    }
+    resetOrgForm();
     loadOrgsList();
   } catch (e) { showToast(e.message, 'error'); }
 });
 
 // ── Events ─────────────────────────────────────────────
+let loadedEvents = [];
+let currentEventEditId = null;
+
 async function loadOrgSelect() {
   const sel = document.getElementById('event-org');
   try {
@@ -222,9 +288,14 @@ async function loadOrgSelect() {
 async function loadEventsList() {
   const list = document.getElementById('events-list');
   try {
-    const events = await API.getEvents();
-    list.innerHTML = events.length ? events.map(e => `
-      <div class="list-card">
+    loadedEvents = await API.getEvents();
+    list.innerHTML = loadedEvents.length ? loadedEvents.map(e => `
+      <div class="list-card" data-event-id="${e.id}">
+        <div class="card-logo-wrap">
+          ${e.logo_url
+            ? `<img class="card-logo" alt="">`
+            : `<div class="card-logo-placeholder">${e.name.charAt(0).toUpperCase()}</div>`}
+        </div>
         <div class="list-card-main">
           <strong>${e.name}</strong>
           <span class="muted">${e.org_name} &middot; ${new Date(e.event_date).toLocaleDateString('en-GB')}</span>
@@ -232,13 +303,58 @@ async function loadEventsList() {
         <div class="list-card-meta">
           <span class="badge ${e.is_active ? 'badge-green' : 'badge-grey'}">${e.is_active ? 'Active' : 'Inactive'}</span>
           <span class="badge badge-blue">${e.total_tickets || 0} tickets</span>
+          <button class="btn btn-sm" data-action="edit-event" data-id="${e.id}">Edit</button>
           <button class="btn btn-sm btn-danger" data-action="delete-event" data-id="${e.id}" data-name="${e.name.replace(/"/g, '&quot;')}">Delete</button>
         </div>
       </div>`).join('')
       : '<div class="empty-card"><p class="muted">No events yet.</p></div>';
+    list.querySelectorAll('.list-card[data-event-id]').forEach(card => {
+      const ev = loadedEvents.find(e => e.id == card.dataset.eventId);
+      if (ev?.logo_url) { const img = card.querySelector('.card-logo'); if (img) img.src = ev.logo_url; }
+    });
   } catch (e) {
     list.innerHTML = `<div class="empty-card"><p class="error">${e.message}</p></div>`;
   }
+}
+
+function fillEventForm(evt) {
+  currentEventEditId = evt.id;
+  document.getElementById('event-form-container').querySelector('h3').textContent = 'Edit Event';
+  document.getElementById('save-event').textContent = 'Save Changes';
+  document.getElementById('event-name').value = evt.name || '';
+  document.getElementById('event-slug').value = evt.slug || '';
+  document.getElementById('event-date').value = evt.event_date ? evt.event_date.split('T')[0] : '';
+  document.getElementById('event-time').value = evt.event_time || '';
+  document.getElementById('event-venue').value = evt.venue || '';
+  document.getElementById('event-org').value = evt.organisation_id || '';
+  document.getElementById('event-primary').value = evt.primary_color || '#0a0a0a';
+  document.getElementById('event-accent').value = evt.accent_color || '#e50000';
+  document.getElementById('event-secondary').value = evt.secondary_color || '#ffffff';
+  document.getElementById('event-logo-data').value = evt.logo_url || '';
+  const preview = document.getElementById('event-logo-preview');
+  if (evt.logo_url) {
+    preview.src = evt.logo_url; preview.classList.remove('hidden');
+    document.getElementById('event-logo-name').textContent = 'Current logo';
+  } else {
+    preview.classList.add('hidden');
+    document.getElementById('event-logo-name').textContent = 'No file chosen';
+  }
+  document.getElementById('event-form-container').classList.remove('hidden');
+}
+
+function resetEventForm() {
+  currentEventEditId = null;
+  document.getElementById('event-form-container').querySelector('h3').textContent = 'New Event';
+  document.getElementById('save-event').textContent = 'Save Event';
+  document.getElementById('event-name').value = '';
+  document.getElementById('event-slug').value = '';
+  document.getElementById('event-date').value = '';
+  document.getElementById('event-time').value = '';
+  document.getElementById('event-venue').value = '';
+  document.getElementById('event-logo-data').value = '';
+  document.getElementById('event-logo-preview').classList.add('hidden');
+  document.getElementById('event-logo-name').textContent = 'No file chosen';
+  document.getElementById('event-form-container').classList.add('hidden');
 }
 
 async function deleteEvent(id, name) {
@@ -252,17 +368,30 @@ async function deleteEvent(id, name) {
 
 document.getElementById('events-list').addEventListener('click', e => {
   const btn = e.target.closest('[data-action]');
-  if (btn?.dataset.action === 'delete-event') deleteEvent(btn.dataset.id, btn.dataset.name);
+  if (btn) {
+    if (btn.dataset.action === 'delete-event') deleteEvent(btn.dataset.id, btn.dataset.name);
+    if (btn.dataset.action === 'edit-event') {
+      const evt = loadedEvents.find(ev => ev.id == btn.dataset.id);
+      if (evt) fillEventForm(evt);
+    }
+    return;
+  }
+  const card = e.target.closest('.list-card[data-event-id]');
+  if (card) {
+    const evt = loadedEvents.find(ev => ev.id == card.dataset.eventId);
+    if (evt) fillEventForm(evt);
+  }
 });
 
 document.getElementById('show-add-event').addEventListener('click', () => {
+  resetEventForm();
   document.getElementById('event-form-container').classList.remove('hidden');
 });
-document.getElementById('cancel-event').addEventListener('click', () => {
-  document.getElementById('event-form-container').classList.add('hidden');
-});
+document.getElementById('cancel-event').addEventListener('click', resetEventForm);
 document.getElementById('event-name').addEventListener('input', e => {
-  document.getElementById('event-slug').value = e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  if (!currentEventEditId) {
+    document.getElementById('event-slug').value = e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  }
 });
 document.getElementById('pick-event-logo').addEventListener('click', async () => {
   const data = await window.electronAPI.openImage();
@@ -277,22 +406,26 @@ document.getElementById('save-event').addEventListener('click', async () => {
   const slug = document.getElementById('event-slug').value.trim();
   const date = document.getElementById('event-date').value;
   if (!name || !slug || !date) return showToast('Name, slug and date required', 'error');
+  const data = {
+    organisation_id: document.getElementById('event-org').value,
+    name, slug,
+    event_date: date,
+    event_time: document.getElementById('event-time').value || null,
+    venue: document.getElementById('event-venue').value || null,
+    logo_url: document.getElementById('event-logo-data').value || null,
+    primary_color: document.getElementById('event-primary').value,
+    accent_color: document.getElementById('event-accent').value,
+    secondary_color: document.getElementById('event-secondary').value
+  };
   try {
-    await API.createEvent({
-      organisation_id: document.getElementById('event-org').value,
-      name, slug,
-      event_date: date,
-      event_time: document.getElementById('event-time').value || null,
-      venue: document.getElementById('event-venue').value || null,
-      logo_url: document.getElementById('event-logo-data').value || null,
-      primary_color: document.getElementById('event-primary').value,
-      accent_color: document.getElementById('event-accent').value,
-      secondary_color: document.getElementById('event-secondary').value
-    });
-    showToast('Event created', 'success');
-    document.getElementById('event-form-container').classList.add('hidden');
-    document.getElementById('event-name').value = '';
-    document.getElementById('event-slug').value = '';
+    if (currentEventEditId) {
+      await API.updateEvent(currentEventEditId, data);
+      showToast('Event updated', 'success');
+    } else {
+      await API.createEvent(data);
+      showToast('Event created', 'success');
+    }
+    resetEventForm();
     loadEventsList();
   } catch (e) { showToast(e.message, 'error'); }
 });

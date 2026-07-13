@@ -48,6 +48,17 @@ router.post('/organisations', requireApiKey, async (req, res) => {
   }
 });
 
+router.put('/organisations/:id', requireApiKey, async (req, res) => {
+  try {
+    const { name, slug, logo_url, primary_color, secondary_color, accent_color } = req.body;
+    await db.query(
+      'UPDATE organisations SET name=?, slug=?, logo_url=?, primary_color=?, secondary_color=?, accent_color=? WHERE id=?',
+      [name, slug, logo_url || null, primary_color || '#0a0a0a', secondary_color || '#ffffff', accent_color || '#e50000', req.params.id]
+    );
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 router.delete('/organisations/:id', requireApiKey, async (req, res) => {
   await db.query('DELETE FROM organisations WHERE id = ?', [req.params.id]);
   res.json({ success: true });
@@ -81,6 +92,20 @@ router.post('/events', requireApiKey, async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+router.put('/events/:id', requireApiKey, async (req, res) => {
+  try {
+    const { organisation_id, name, event_date, event_time, venue, slug, logo_url, primary_color, secondary_color, accent_color, is_active } = req.body;
+    await db.query(
+      `UPDATE events SET organisation_id=?, name=?, event_date=?, event_time=?, venue=?, slug=?, logo_url=?,
+       primary_color=?, secondary_color=?, accent_color=?, is_active=? WHERE id=?`,
+      [organisation_id, name, event_date, event_time || null, venue, slug, logo_url || null,
+       primary_color || '#0a0a0a', secondary_color || '#ffffff', accent_color || '#e50000',
+       is_active !== undefined ? is_active : 1, req.params.id]
+    );
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 router.delete('/events/:id', requireApiKey, async (req, res) => {

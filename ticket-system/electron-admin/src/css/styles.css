@@ -259,6 +259,7 @@ body {
   border: 1px solid var(--border-light);
   transition: box-shadow 0.2s, border-color 0.2s;
   gap: 16px;
+  cursor: pointer;
 }
 
 .list-card:hover {
@@ -271,6 +272,7 @@ body {
   flex-direction: column;
   gap: 4px;
   min-width: 0;
+  flex: 1;
 }
 
 .list-card-main strong {
@@ -287,6 +289,30 @@ body {
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
+}
+
+/* ── Card Logo ─────────────────────────────────────────── */
+.card-logo-wrap { flex-shrink: 0; }
+
+.card-logo {
+  width: 44px; height: 44px;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  display: block;
+}
+
+.card-logo-placeholder {
+  width: 44px; height: 44px;
+  border-radius: var(--radius-sm);
+  background: var(--primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 18px;
 }
 
 .empty-card {
