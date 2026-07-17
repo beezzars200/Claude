@@ -73,11 +73,15 @@ ipcMain.handle('generate-tickets', async (event, { tickets, event: evt }) => {
     await new Promise(resolve => {
       doc.on('end', resolve);
 
+      const bgCol = evt.primary_color || '#ffffff';
+      const accentCol = evt.accent_color || '#e50000';
+      const textCol = evt.secondary_color || '#0a0a0a';
+
       // Background
-      doc.rect(0, 0, 595, 260).fill(evt.primary_color || '#1a1a2e');
+      doc.rect(0, 0, 595, 260).fill(bgCol);
 
       // Accent stripe
-      doc.rect(0, 0, 6, 260).fill(evt.accent_color || '#e94560');
+      doc.rect(0, 0, 6, 260).fill(accentCol);
 
       // Logo area (if provided)
       if (evt.logo_url && evt.logo_url.startsWith('data:image')) {
@@ -89,7 +93,7 @@ ipcMain.handle('generate-tickets', async (event, { tickets, event: evt }) => {
       }
 
       // Event name
-      doc.fillColor(evt.secondary_color || '#ffffff')
+      doc.fillColor(textCol, 1)
         .font('Helvetica-Bold').fontSize(20)
         .text(evt.name, 120, 28, { width: 290, lineBreak: false });
 
@@ -98,34 +102,34 @@ ipcMain.handle('generate-tickets', async (event, { tickets, event: evt }) => {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
       });
       const metaLine = [dateStr, evt.event_time, evt.venue].filter(Boolean).join('  ·  ');
-      doc.font('Helvetica').fontSize(11).fillColor('rgba(255,255,255,0.7)')
+      doc.font('Helvetica').fontSize(11).fillColor(textCol, 0.75)
         .text(metaLine, 120, 60, { width: 290 });
 
       // Divider
-      doc.moveTo(120, 90).lineTo(420, 90).strokeColor('rgba(255,255,255,0.15)').lineWidth(1).stroke();
+      doc.moveTo(120, 90).lineTo(420, 90).strokeColor(textCol, 0.2).lineWidth(1).stroke();
 
       // Attendee name
-      doc.font('Helvetica-Bold').fontSize(16).fillColor(evt.secondary_color || '#ffffff')
+      doc.font('Helvetica-Bold').fontSize(16).fillColor(textCol, 1)
         .text(ticket.name, 120, 104, { width: 290 });
 
       if (ticket.company) {
-        doc.font('Helvetica').fontSize(12).fillColor('rgba(255,255,255,0.6)')
+        doc.font('Helvetica').fontSize(12).fillColor(textCol, 0.65)
           .text(ticket.company, 120, 126, { width: 290 });
       }
 
       // Ticket number
-      doc.font('Helvetica').fontSize(10).fillColor(evt.accent_color || '#e94560')
+      doc.font('Helvetica').fontSize(10).fillColor(accentCol, 1)
         .text(`TICKET #${ticket.ticketNumber.slice(0, 8).toUpperCase()}`, 120, 165);
 
       // QR code
       doc.image(qrBuffer, 460, 20, { width: 110, height: 110 });
 
       // Bottom label under QR
-      doc.font('Helvetica').fontSize(8).fillColor('rgba(255,255,255,0.5)')
+      doc.font('Helvetica').fontSize(8).fillColor(textCol, 0.55)
         .text('Scan to verify', 460, 135, { width: 110, align: 'center' });
 
       // Powered by
-      doc.font('Helvetica').fontSize(8).fillColor('rgba(255,255,255,0.3)')
+      doc.font('Helvetica').fontSize(8).fillColor(textCol, 0.4)
         .text('events.unitymedianetwork.com', 0, 238, { width: 595, align: 'center' });
 
       doc.end();

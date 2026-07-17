@@ -51,7 +51,7 @@ router.post('/organisations', requireApiKey, async (req, res) => {
     const { name, slug, logo_url, primary_color, secondary_color, accent_color } = req.body;
     const [result] = await db.query(
       'INSERT INTO organisations (name, slug, logo_url, primary_color, secondary_color, accent_color) VALUES (?, ?, ?, ?, ?, ?)',
-      [name, slug, logo_url || null, primary_color || '#0a0a0a', secondary_color || '#ffffff', accent_color || '#e50000']
+      [name, slug, logo_url || null, primary_color || '#ffffff', secondary_color || '#0a0a0a', accent_color || '#e50000']
     );
     res.json({ id: result.insertId, name, slug });
   } catch (e) {
@@ -64,7 +64,7 @@ router.put('/organisations/:id', requireApiKey, async (req, res) => {
     const { name, slug, logo_url, primary_color, secondary_color, accent_color } = req.body;
     await db.query(
       'UPDATE organisations SET name=?, slug=?, logo_url=?, primary_color=?, secondary_color=?, accent_color=? WHERE id=?',
-      [name, slug, logo_url || null, primary_color || '#0a0a0a', secondary_color || '#ffffff', accent_color || '#e50000', req.params.id]
+      [name, slug, logo_url || null, primary_color || '#ffffff', secondary_color || '#0a0a0a', accent_color || '#e50000', req.params.id]
     );
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -97,7 +97,7 @@ router.post('/events', requireApiKey, async (req, res) => {
       `INSERT INTO events (organisation_id, name, event_date, event_time, venue, slug, logo_url, primary_color, secondary_color, accent_color)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [organisation_id, name, event_date, event_time || null, venue, slug, logo_url || null,
-       primary_color || '#0a0a0a', secondary_color || '#ffffff', accent_color || '#e50000']
+       primary_color || '#ffffff', secondary_color || '#0a0a0a', accent_color || '#e50000']
     );
     res.json({ id: result.insertId, name, slug });
   } catch (e) {
@@ -112,7 +112,7 @@ router.put('/events/:id', requireApiKey, async (req, res) => {
       `UPDATE events SET organisation_id=?, name=?, event_date=?, event_time=?, venue=?, slug=?, logo_url=?,
        primary_color=?, secondary_color=?, accent_color=?, is_active=COALESCE(?, is_active) WHERE id=?`,
       [organisation_id, name, event_date, event_time || null, venue, slug, logo_url || null,
-       primary_color || '#0a0a0a', secondary_color || '#ffffff', accent_color || '#e50000',
+       primary_color || '#ffffff', secondary_color || '#0a0a0a', accent_color || '#e50000',
        is_active !== undefined ? is_active : null, req.params.id]
     );
     res.json({ success: true });

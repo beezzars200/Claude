@@ -239,9 +239,9 @@ function fillOrgForm(org) {
   document.getElementById('save-org').textContent = 'Save Changes';
   document.getElementById('org-name').value = org.name || '';
   document.getElementById('org-slug').value = org.slug || '';
-  document.getElementById('org-primary').value = org.primary_color || '#0a0a0a';
+  document.getElementById('org-primary').value = org.primary_color || '#ffffff';
   document.getElementById('org-accent').value = org.accent_color || '#e50000';
-  document.getElementById('org-secondary').value = org.secondary_color || '#ffffff';
+  document.getElementById('org-secondary').value = org.secondary_color || '#0a0a0a';
   document.getElementById('org-logo-data').value = org.logo_url || '';
   const preview = document.getElementById('org-logo-preview');
   if (org.logo_url) {
@@ -355,9 +355,9 @@ function applyOrgColours() {
   if (currentEventEditId) return;
   const org = orgsForSelect.find(o => o.id == document.getElementById('event-org').value);
   if (!org) return;
-  document.getElementById('event-primary').value = org.primary_color || '#0a0a0a';
+  document.getElementById('event-primary').value = org.primary_color || '#ffffff';
   document.getElementById('event-accent').value = org.accent_color || '#e50000';
-  document.getElementById('event-secondary').value = org.secondary_color || '#ffffff';
+  document.getElementById('event-secondary').value = org.secondary_color || '#0a0a0a';
 }
 
 async function loadEventsList() {
@@ -402,9 +402,9 @@ function fillEventForm(ev) {
   document.getElementById('event-date').value = ev.event_date ? ev.event_date.split('T')[0] : '';
   document.getElementById('event-time').value = ev.event_time || '';
   document.getElementById('event-venue').value = ev.venue || '';
-  document.getElementById('event-primary').value = ev.primary_color || '#0a0a0a';
+  document.getElementById('event-primary').value = ev.primary_color || '#ffffff';
   document.getElementById('event-accent').value = ev.accent_color || '#e50000';
-  document.getElementById('event-secondary').value = ev.secondary_color || '#ffffff';
+  document.getElementById('event-secondary').value = ev.secondary_color || '#0a0a0a';
   document.getElementById('event-logo-data').value = ev.logo_url || '';
   const preview = document.getElementById('event-logo-preview');
   if (ev.logo_url) {

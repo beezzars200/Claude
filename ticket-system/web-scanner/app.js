@@ -38,9 +38,9 @@ async function initDb() {
       name VARCHAR(255) NOT NULL,
       slug VARCHAR(100) UNIQUE NOT NULL,
       logo_url VARCHAR(500),
-      primary_color VARCHAR(7) DEFAULT '#0f172a',
-      secondary_color VARCHAR(7) DEFAULT '#ffffff',
-      accent_color VARCHAR(7) DEFAULT '#6366f1',
+      primary_color VARCHAR(7) DEFAULT '#ffffff',
+      secondary_color VARCHAR(7) DEFAULT '#0a0a0a',
+      accent_color VARCHAR(7) DEFAULT '#e50000',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -54,9 +54,9 @@ async function initDb() {
       venue VARCHAR(255),
       slug VARCHAR(150) UNIQUE NOT NULL,
       logo_url VARCHAR(500),
-      primary_color VARCHAR(7) DEFAULT '#0f172a',
-      secondary_color VARCHAR(7) DEFAULT '#ffffff',
-      accent_color VARCHAR(7) DEFAULT '#6366f1',
+      primary_color VARCHAR(7) DEFAULT '#ffffff',
+      secondary_color VARCHAR(7) DEFAULT '#0a0a0a',
+      accent_color VARCHAR(7) DEFAULT '#e50000',
       is_active TINYINT(1) DEFAULT 1,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (organisation_id) REFERENCES organisations(id) ON DELETE CASCADE
