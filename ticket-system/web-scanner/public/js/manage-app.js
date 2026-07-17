@@ -7,7 +7,7 @@ function showView(viewId) {
   navItems.forEach(n => n.classList.remove('active'));
   document.getElementById(`view-${viewId}`)?.classList.add('active');
   document.querySelector(`[data-view="${viewId}"]`)?.classList.add('active');
-  if (viewId === 'dashboard') loadDashboard();
+  if (viewId === 'dashboard') { loadDashboard(); startDashboardPolling(); } else { stopDashboardPolling(); }
   if (viewId === 'import') loadEventSelects();
   if (viewId === 'events') { loadEventsList(); loadOrgSelect(); }
   if (viewId === 'organisations') loadOrgsList();
@@ -306,6 +306,57 @@ document.getElementById('dashboard-events-list').addEventListener('click', e => 
   openEventDetail(card.dataset.eventId, card);
 });
 
+
+// ── Dashboard live refresh (polls every 10s while visible) ──
+let dashboardPollTimer = null;
+
+function startDashboardPolling() {
+  stopDashboardPolling();
+  dashboardPollTimer = setInterval(refreshDashboardLive, 10000);
+}
+
+function stopDashboardPolling() {
+  if (dashboardPollTimer) clearInterval(dashboardPollTimer);
+  dashboardPollTimer = null;
+}
+
+async function refreshDashboardLive() {
+  if (document.hidden) return;
+  const view = document.getElementById('view-dashboard');
+  if (!view || !view.classList.contains('active')) return;
+  try {
+    if (openDetailEventId) {
+      // Refresh the open panel in place without rebuilding the card list
+      detailTickets = await API.getTickets(openDetailEventId);
+      renderEventDetail();
+      allEvents = await API.getEvents();
+      updateDashboardNumbers();
+    } else {
+      allEvents = await API.getEvents();
+      renderDashboard();
+    }
+  } catch (e) {} // transient network error: try again next tick
+}
+
+function updateDashboardNumbers() {
+  const filter = document.getElementById('dashboard-org-filter').value;
+  const events = filter ? allEvents.filter(e => e.org_name === filter) : allEvents;
+  document.getElementById('stat-events').textContent = events.length;
+  const total = events.reduce((s, e) => s + (parseInt(e.total_tickets) || 0), 0);
+  const scanned = events.reduce((s, e) => s + (parseInt(e.scanned_tickets) || 0), 0);
+  document.getElementById('stat-tickets').textContent = total;
+  document.getElementById('stat-scanned').textContent = scanned;
+  document.getElementById('stat-remaining').textContent = total - scanned;
+  for (const e of events) {
+    const card = document.querySelector(`#dashboard-events-list .list-card[data-event-id="${e.id}"]`);
+    if (!card) continue;
+    const pct = e.total_tickets ? Math.round(((parseInt(e.scanned_tickets) || 0) / (parseInt(e.total_tickets) || 1)) * 100) : 0;
+    const fill = card.querySelector('.progress-fill');
+    if (fill) fill.style.width = pct + '%';
+    const count = card.querySelector('.progress-wrap .muted');
+    if (count) count.textContent = `${e.scanned_tickets || 0}/${e.total_tickets || 0}`;
+  }
+}
 
 // ── Organisations ──────────────────────────────────────
 let loadedOrgs = [];
