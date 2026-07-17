@@ -151,6 +151,7 @@ async function loadDashboard() {
 }
 
 function renderDashboard() {
+  closeEventDetail();
   const filter = document.getElementById('dashboard-org-filter').value;
   const events = filter ? allEvents.filter(e => e.org_name === filter) : allEvents;
   document.getElementById('stat-events').textContent = events.length;
@@ -164,7 +165,7 @@ function renderDashboard() {
   list.innerHTML = events.length ? events.map(e => {
     const pct = e.total_tickets ? Math.round((e.scanned_tickets / e.total_tickets) * 100) : 0;
     return `
-      <div class="list-card">
+      <div class="list-card" data-event-id="${e.id}">
         <div class="list-card-main">
           <strong>${e.name}</strong>
           <span class="muted">${e.org_name} &middot; ${new Date(e.event_date).toLocaleDateString('en-GB')}</span>
@@ -181,6 +182,111 @@ function renderDashboard() {
 }
 
 document.getElementById('dashboard-org-filter').addEventListener('change', renderDashboard);
+
+// ── Event detail (click a dashboard card) ──────────────
+let openDetailEventId = null;
+let detailTickets = [];
+let currentDetailFilter = 'scanned';
+let detailEl = null;
+
+function closeEventDetail() {
+  if (detailEl) detailEl.remove();
+  detailEl = null;
+  openDetailEventId = null;
+}
+
+function aggregateAttendees(tickets) {
+  const byAtt = new Map();
+  for (const t of tickets) {
+    const key = t.attendee_id != null ? t.attendee_id : `${t.name}|${t.company || ''}`;
+    if (!byAtt.has(key)) byAtt.set(key, { name: t.name, company: t.company, total: 0, scanned: 0, lastScan: null });
+    const a = byAtt.get(key);
+    a.total++;
+    if (t.scanned) {
+      a.scanned++;
+      const ts = t.scanned_at ? new Date(t.scanned_at) : null;
+      if (ts && (!a.lastScan || ts > a.lastScan)) a.lastScan = ts;
+    }
+  }
+  return [...byAtt.values()].sort((x, y) => x.name.localeCompare(y.name));
+}
+
+function renderEventDetail() {
+  if (!detailEl) return;
+  const attendees = aggregateAttendees(detailTickets);
+  const total = detailTickets.length;
+  const scanned = detailTickets.filter(t => t.scanned).length;
+  const remaining = total - scanned;
+
+  let rows, empty;
+  if (currentDetailFilter === 'scanned') {
+    rows = attendees.filter(a => a.scanned > 0);
+    empty = 'No one has been scanned in yet.';
+  } else if (currentDetailFilter === 'remaining') {
+    rows = attendees.filter(a => a.scanned < a.total);
+    empty = 'Everyone is in — no tickets remaining.';
+  } else {
+    rows = attendees;
+    empty = 'No tickets imported yet.';
+  }
+
+  const rowHtml = a => {
+    const badge = currentDetailFilter === 'remaining'
+      ? `<span class="badge badge-grey">${a.total - a.scanned} of ${a.total} outstanding</span>`
+      : `<span class="badge ${a.scanned ? 'badge-green' : 'badge-grey'}">${a.scanned}/${a.total} in</span>`;
+    const when = currentDetailFilter === 'scanned' && a.lastScan
+      ? `<span class="muted" style="font-size:12px">${a.lastScan.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>`
+      : '';
+    return `
+      <div class="detail-row">
+        <div><strong>${a.name}</strong>${a.company ? `<span class="muted"> &middot; ${a.company}</span>` : ''}</div>
+        <div class="detail-row-meta">${when}${badge}</div>
+      </div>`;
+  };
+
+  detailEl.innerHTML = `
+    <div class="detail-tiles">
+      <button class="detail-tile ${currentDetailFilter === 'total' ? 'active' : ''}" data-detail-filter="total">
+        <span class="detail-num">${total}</span><span class="detail-label">Total Tickets</span>
+      </button>
+      <button class="detail-tile ${currentDetailFilter === 'scanned' ? 'active' : ''}" data-detail-filter="scanned">
+        <span class="detail-num">${scanned}</span><span class="detail-label">Scanned</span>
+      </button>
+      <button class="detail-tile ${currentDetailFilter === 'remaining' ? 'active' : ''}" data-detail-filter="remaining">
+        <span class="detail-num">${remaining}</span><span class="detail-label">Remaining</span>
+      </button>
+    </div>
+    <div class="detail-list">
+      ${rows.length ? rows.map(rowHtml).join('') : `<p class="muted" style="padding:10px 4px">${empty}</p>`}
+    </div>`;
+}
+
+async function openEventDetail(eventId, card) {
+  closeEventDetail();
+  openDetailEventId = eventId;
+  detailEl = document.createElement('div');
+  detailEl.className = 'event-detail';
+  detailEl.innerHTML = '<p class="muted">Loading attendees…</p>';
+  card.insertAdjacentElement('afterend', detailEl);
+  try {
+    detailTickets = await API.getTickets(eventId);
+    currentDetailFilter = 'scanned';
+    renderEventDetail();
+  } catch (err) {
+    detailEl.innerHTML = `<p class="error">${err.message}</p>`;
+  }
+}
+
+document.getElementById('dashboard-events-list').addEventListener('click', e => {
+  if (e.target.closest('a')) return;
+  const tile = e.target.closest('[data-detail-filter]');
+  if (tile) { currentDetailFilter = tile.dataset.detailFilter; renderEventDetail(); return; }
+  const card = e.target.closest('[data-event-id]');
+  if (!card) return;
+  if (openDetailEventId == card.dataset.eventId) { closeEventDetail(); return; }
+  openEventDetail(card.dataset.eventId, card);
+});
+
 
 // ── Organisations ──────────────────────────────────────
 let loadedOrgs = [];
