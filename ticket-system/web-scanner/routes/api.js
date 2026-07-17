@@ -162,9 +162,9 @@ router.post('/events/:eventId/import', requireApiKey, async (req, res) => {
 
 router.get('/events/:eventId/tickets', requireApiKey, async (req, res) => {
   const [rows] = await db.query(
-    `SELECT t.ticket_number, t.scanned, t.scanned_at, a.name, a.company, a.email, a.mobile
+    `SELECT t.ticket_number, t.scanned, t.scanned_at, a.id as attendee_id, a.name, a.company, a.email, a.mobile
      FROM tickets t JOIN attendees a ON t.attendee_id = a.id
-     WHERE t.event_id = ? ORDER BY a.name`,
+     WHERE t.event_id = ? ORDER BY a.name, t.id`,
     [req.params.eventId]
   );
   res.json(rows);

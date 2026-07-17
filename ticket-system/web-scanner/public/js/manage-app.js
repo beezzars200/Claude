@@ -633,11 +633,11 @@ document.getElementById('gen-btn').addEventListener('click', async () => {
   try {
     const tickets = await API.getTickets(sel.value);
     const res = await window.electronAPI.generateTickets({
-      tickets: tickets.map(t => ({ ticketNumber: t.ticket_number, name: t.name, company: t.company })),
+      tickets: tickets.map(t => ({ ticketNumber: t.ticket_number, name: t.name, company: t.company, attendeeId: t.attendee_id })),
       event: evt
     });
     result.className = 'info-box info-success'; result.classList.remove('hidden');
-    result.textContent = `✓ ${res.count} PDF tickets generated — ZIP saved to Downloads.`;
+    result.textContent = `✓ ${res.count} tickets generated across ${res.files || res.count} PDFs (one per person) — ZIP saved to Downloads.`;
     showToast(`${res.count} tickets generated`, 'success');
   } catch (e) {
     result.className = 'info-box info-error'; result.classList.remove('hidden');
