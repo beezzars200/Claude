@@ -53,6 +53,15 @@ body {
   -webkit-app-region: no-drag;
 }
 
+/* Invisible title-bar strip: the whole top edge of the window drags */
+.titlebar-drag {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 26px;
+  z-index: 1000;
+  -webkit-app-region: drag;
+}
+
 .sidebar::before {
   content: '';
   position: absolute;
