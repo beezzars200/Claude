@@ -319,12 +319,24 @@ document.getElementById('save-org').addEventListener('click', async () => {
 let loadedEvents = [];
 let currentEventEditId = null;
 
+let orgsForSelect = [];
+
 async function loadOrgSelect() {
   const sel = document.getElementById('event-org');
   try {
-    const orgs = await API.getOrganisations();
-    sel.innerHTML = orgs.map(o => `<option value="${o.id}">${o.name}</option>`).join('');
+    orgsForSelect = await API.getOrganisations();
+    sel.innerHTML = orgsForSelect.map(o => `<option value="${o.id}">${o.name}</option>`).join('');
   } catch (e) {}
+}
+
+// New events inherit the selected org's brand colours (still editable per event)
+function applyOrgColours() {
+  if (currentEventEditId) return;
+  const org = orgsForSelect.find(o => o.id == document.getElementById('event-org').value);
+  if (!org) return;
+  document.getElementById('event-primary').value = org.primary_color || '#0a0a0a';
+  document.getElementById('event-accent').value = org.accent_color || '#e50000';
+  document.getElementById('event-secondary').value = org.secondary_color || '#ffffff';
 }
 
 async function loadEventsList() {
@@ -427,8 +439,10 @@ document.getElementById('events-list').addEventListener('click', e => {
 
 document.getElementById('show-add-event').addEventListener('click', () => {
   resetEventForm();
+  applyOrgColours();
   document.getElementById('event-form-container').classList.remove('hidden');
 });
+document.getElementById('event-org').addEventListener('change', applyOrgColours);
 document.getElementById('cancel-event').addEventListener('click', resetEventForm);
 document.getElementById('event-name').addEventListener('input', e => {
   if (!currentEventEditId) {
