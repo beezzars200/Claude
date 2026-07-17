@@ -119,7 +119,11 @@ ipcMain.handle('generate-tickets', async (event, { tickets, event: evt }) => {
   const archiver = require('archiver');
   const baseUrl = evt.baseUrl || 'https://events.unitymedianetwork.com';
 
-  const zipName = `${evt.slug}-tickets.zip`;
+  // Timestamped filename: each run is a new file (macOS keeps the old
+  // creation date when overwriting in place) and old/new ZIPs can't be confused
+  const now = new Date();
+  const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+  const zipName = `${evt.slug}-tickets-${stamp}.zip`;
   const zipPath = path.join(os.homedir(), 'Downloads', zipName);
 
   const output = fs.createWriteStream(zipPath);
