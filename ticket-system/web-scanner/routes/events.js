@@ -30,7 +30,7 @@ router.get('/events', requireAuth, async (req, res) => {
   }
   query += ' GROUP BY e.id ORDER BY e.event_date DESC';
   const [events] = await db.query(query, params);
-  res.render('events-list', { events });
+  res.render('events-list', { events, username: req.session.username, isSuperAdmin: req.session.isSuperAdmin });
 });
 
 router.get('/events/:slug/scan', requireAuth, async (req, res) => {
@@ -57,22 +57,9 @@ router.get('/verify/:ticketNumber', requireAuthApi, async (req, res) => {
   res.json({ valid: true, scanned: !!t.scanned, name: t.name, company: t.company, event: t.event_name, ticketNumber: t.ticket_number, scannedAt: t.scanned_at });
 });
 
-router.get('/admin', requireAuth, async (req, res) => {
-  let eventsQuery = `
-    SELECT e.*, o.name as org_name,
-      COUNT(t.id) as total_tickets, SUM(t.scanned) as scanned_tickets
-    FROM events e JOIN organisations o ON e.organisation_id = o.id
-    LEFT JOIN tickets t ON t.event_id = e.id
-  `;
-  const params = [];
-  if (req.session.organisationId) {
-    eventsQuery += ' WHERE e.organisation_id = ?';
-    params.push(req.session.organisationId);
-  }
-  eventsQuery += ' GROUP BY e.id ORDER BY e.created_at DESC';
-  const [events] = await db.query(eventsQuery, params);
-  const [orgs] = await db.query('SELECT * FROM organisations ORDER BY name');
-  res.render('admin', { events, orgs, username: req.session.username, isSuperAdmin: req.session.isSuperAdmin });
+// Legacy dashboard — superseded by /events (org users) and /manage (super admin)
+router.get('/admin', requireAuth, (req, res) => {
+  res.redirect(req.session.isSuperAdmin ? '/manage' : '/events');
 });
 
 module.exports = router;

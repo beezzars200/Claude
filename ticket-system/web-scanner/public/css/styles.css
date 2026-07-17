@@ -81,6 +81,14 @@ body {
 }
 .site-header h1 { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; }
 .site-header p { color: rgba(255,255,255,0.6); margin-top: 6px; font-size: 15px; }
+.site-header-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.site-header-user { display: flex; align-items: center; gap: 14px; }
+.site-header-username { color: rgba(255,255,255,0.6); font-size: 13px; }
+.header-link {
+  color: white; text-decoration: none; font-size: 13px; font-weight: 700;
+  padding: 7px 14px; border: 1.5px solid rgba(255,255,255,0.3); border-radius: 8px;
+}
+.header-link:hover { background: rgba(255,255,255,0.1); }
 
 /* Events Grid */
 .events-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; padding-bottom: 48px; }
@@ -98,12 +106,23 @@ body {
 .event-org { color: var(--accent); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; }
 .event-meta { font-size: 14px; color: var(--text); margin-bottom: 4px; }
 .event-venue { font-size: 13px; color: var(--muted); }
+.event-card-stats {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  border-top: 1.5px solid var(--border);
+}
+.event-stat {
+  padding: 14px 8px; text-align: center;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.event-stat + .event-stat { border-left: 1.5px solid var(--border); }
+.event-stat-num { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+.event-stat-label { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 700; }
 .event-card-footer {
-  padding: 14px 22px; background: var(--grey); border-top: 1.5px solid var(--border);
-  display: flex; justify-content: space-between; align-items: center; font-size: 13px;
+  padding: 14px 22px; background: var(--accent); border-top: 1.5px solid var(--border);
+  display: flex; justify-content: center; align-items: center; font-size: 14px;
 }
 .scan-count { color: var(--muted); }
-.scan-btn { color: var(--accent); font-weight: 700; letter-spacing: 0.3px; }
+.scan-btn { color: white; font-weight: 700; letter-spacing: 0.3px; }
 .empty-state { text-align: center; padding: 80px 20px; color: var(--muted); }
 .empty-state p { font-size: 16px; }
 

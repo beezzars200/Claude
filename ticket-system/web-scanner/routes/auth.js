@@ -4,7 +4,7 @@ const router = express.Router();
 const db = require('../db/connection');
 
 router.get('/login', (req, res) => {
-  if (req.session.authenticated) return res.redirect('/admin');
+  if (req.session.authenticated) return res.redirect(req.session.isSuperAdmin ? '/manage' : '/events');
   res.render('login', { error: null });
 });
 
@@ -22,7 +22,7 @@ router.post('/login', async (req, res) => {
         req.session.username = username;
         req.session.organisationId = user.organisation_id || null;
         req.session.isSuperAdmin = !user.organisation_id;
-        return res.redirect(user.organisation_id ? '/admin' : '/manage');
+        return res.redirect(user.organisation_id ? '/events' : '/manage');
       }
     }
   } catch (e) {

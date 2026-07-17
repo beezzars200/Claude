@@ -8,9 +8,16 @@
 </head>
 <body class="events-page">
   <header class="site-header">
-    <div class="container">
-      <h1>Events</h1>
-      <p>Select an event to begin scanning tickets</p>
+    <div class="container site-header-row">
+      <div>
+        <h1>Events</h1>
+        <p>Select an event to begin scanning tickets</p>
+      </div>
+      <div class="site-header-user">
+        <span class="site-header-username"><%= username %></span>
+        <% if (isSuperAdmin) { %><a href="/manage" class="header-link">Manage</a><% } %>
+        <a href="/auth/logout" class="header-link">Logout</a>
+      </div>
     </div>
   </header>
   <main class="container">
@@ -35,9 +42,22 @@
               </p>
               <% if (event.venue) { %><p class="event-venue"><%= event.venue %></p><% } %>
             </div>
+            <div class="event-card-stats">
+              <div class="event-stat">
+                <span class="event-stat-num"><%= event.total_tickets || 0 %></span>
+                <span class="event-stat-label">Tickets</span>
+              </div>
+              <div class="event-stat">
+                <span class="event-stat-num"><%= event.scanned_tickets || 0 %></span>
+                <span class="event-stat-label">Scanned</span>
+              </div>
+              <div class="event-stat">
+                <span class="event-stat-num"><%= (parseInt(event.total_tickets) || 0) - (parseInt(event.scanned_tickets) || 0) %></span>
+                <span class="event-stat-label">Remaining</span>
+              </div>
+            </div>
             <div class="event-card-footer">
-              <span class="scan-count"><%= event.scanned_tickets || 0 %> / <%= event.total_tickets || 0 %> scanned</span>
-              <span class="scan-btn">Scan &rarr;</span>
+              <span class="scan-btn">Open Scanner &rarr;</span>
             </div>
           </a>
         <% }) %>
