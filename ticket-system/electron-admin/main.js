@@ -64,39 +64,41 @@ function drawTicketPage(doc, evt, ticket, qrBuffer, index, total) {
     try {
       const base64Data = evt.logo_url.split(',')[1];
       const imgBuffer = Buffer.from(base64Data, 'base64');
-      doc.image(imgBuffer, 24, 24, { width: 80, height: 80, fit: [80, 80] });
+      doc.image(imgBuffer, 24, 24, { fit: [80, 80] });
     } catch (e) {}
   }
 
-  // Event name
-  doc.fillColor(textCol, 1)
-    .font('Helvetica-Bold').fontSize(20)
-    .text(evt.name, 120, 28, { width: 290, lineBreak: false });
+  const textX = 120, textW = 320;
 
-  // Date / time / venue
+  // Event name — wraps up to two lines, truncates with … beyond that
+  doc.font('Helvetica-Bold').fontSize(20).fillColor(textCol, 1)
+    .text(evt.name, textX, 24, { width: textW, height: 50, ellipsis: true });
+
+  // Date / time / venue — flows below wherever the name ended
   const dateStr = new Date(evt.event_date).toLocaleDateString('en-GB', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
   const metaLine = [dateStr, evt.event_time, evt.venue].filter(Boolean).join('  ·  ');
   doc.font('Helvetica').fontSize(11).fillColor(textCol, 0.75)
-    .text(metaLine, 120, 60, { width: 290 });
+    .text(metaLine, textX, doc.y + 5, { width: textW, height: 30, ellipsis: true });
 
   // Divider
-  doc.moveTo(120, 90).lineTo(420, 90).strokeColor(textCol, 0.2).lineWidth(1).stroke();
+  const dividerY = doc.y + 9;
+  doc.moveTo(textX, dividerY).lineTo(440, dividerY).strokeColor(textCol, 0.2).lineWidth(1).stroke();
 
   // Attendee name
   doc.font('Helvetica-Bold').fontSize(16).fillColor(textCol, 1)
-    .text(ticket.name, 120, 104, { width: 290 });
+    .text(ticket.name, textX, dividerY + 12, { width: textW, height: 20, ellipsis: true });
 
   if (ticket.company) {
     doc.font('Helvetica').fontSize(12).fillColor(textCol, 0.65)
-      .text(ticket.company, 120, 126, { width: 290 });
+      .text(ticket.company, textX, doc.y + 3, { width: textW, height: 16, ellipsis: true });
   }
 
   // Ticket number (+ position in the set when the person has multiple tickets)
   const setLabel = total > 1 ? `  ·  TICKET ${index + 1} OF ${total}` : '';
   doc.font('Helvetica').fontSize(10).fillColor(accentCol, 1)
-    .text(`TICKET #${ticket.ticketNumber.slice(0, 8).toUpperCase()}${setLabel}`, 120, 165);
+    .text(`TICKET #${ticket.ticketNumber.slice(0, 8).toUpperCase()}${setLabel}`, textX, 205);
 
   // QR code
   doc.image(qrBuffer, 460, 20, { width: 110, height: 110 });
@@ -107,7 +109,7 @@ function drawTicketPage(doc, evt, ticket, qrBuffer, index, total) {
 
   // Powered by
   doc.font('Helvetica').fontSize(8).fillColor(textCol, 0.4)
-    .text('events.unitymedianetwork.com', 0, 238, { width: 595, align: 'center' });
+    .text('events.unitymedianetwork.com', 0, 240, { width: 595, align: 'center' });
 }
 
 // Generate one PDF per person (all their unique tickets as pages), ZIP into Downloads
