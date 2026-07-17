@@ -87,6 +87,12 @@ function findName(row) {
   return fallback ? row[fallback] || '' : '';
 }
 
+// Placeholder company values ("None", "NA") should not print on tickets
+function cleanCompany(c) {
+  const v = (c || '').trim();
+  return /^(none|na|n\/a|-+)$/i.test(v) ? '' : v;
+}
+
 function findTicketCount(row) {
   const patterns = ['no of tickets', 'no. of tickets', 'number of tickets', 'ticket count', 'tickets', 'ticket qty', 'qty', 'quantity', 'ticket'];
   const keys = Object.keys(row);
@@ -517,9 +523,9 @@ document.getElementById('pick-csv').addEventListener('click', async () => {
       headers.forEach((h, i) => row[h] = (vals[i] || '').replace(/^["']|["']$/g, '').trim());
       return {
         name: findName(row),
-        email: findCol(row, 'email', 'e-mail'),
+        email: findCol(row, 'email', 'e-mail', 'username'),
         mobile: findCol(row, 'mobile', 'phone', 'telephone', 'cell', 'tel'),
-        company: findCol(row, 'company', 'organisation', 'organization', 'business'),
+        company: cleanCompany(findCol(row, 'company', 'organisation', 'organization', 'business')),
         tickets: findTicketCount(row)
       };
     })
