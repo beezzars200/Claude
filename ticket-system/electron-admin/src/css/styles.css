@@ -42,6 +42,15 @@ body {
   padding-top: env(titlebar-area-height, 28px);
   position: relative;
   overflow: hidden;
+  /* Hidden title bar: the sidebar doubles as the window drag handle */
+  -webkit-app-region: drag;
+}
+
+/* Interactive elements inside the sidebar must opt out of dragging */
+.sidebar .nav-item,
+.sidebar button,
+.sidebar a {
+  -webkit-app-region: no-drag;
 }
 
 .sidebar::before {
