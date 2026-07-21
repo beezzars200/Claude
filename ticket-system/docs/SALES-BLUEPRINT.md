@@ -17,18 +17,29 @@ only adding a **public storefront** in front of the existing engine, plus a
 - **Stripe Connect (Standard accounts)** — each club connects their own Stripe
   account. Money goes **directly to the club**. Unity never holds anyone's funds
   (keeps us out of financial-regulation territory).
-- **Unity takes a booking fee per ticket** (an "application fee" in Stripe),
-  collected automatically. This is Unity's revenue stream.
-- **The customer pays the fees** via a visible booking fee added at checkout
-  (the Eventbrite model). Club receives full face value.
+- **Unity takes a two-sided cut per ticket** (both collected automatically as
+  Stripe "application fees"):
+  - a **buyer booking fee** added at checkout, and
+  - a **club commission** taken off the face value.
+  This is Unity's revenue stream.
+- **The customer covers the payment fees** via the visible booking fee
+  (the Eventbrite model), and the club pays a small commission.
 
 ### Worked example — €50 ticket
 ```
 Buyer pays        €51.50
-  → Club receives €50.00   (full face value)
   → Stripe takes  ~€1.00   (1.5% + €0.25, EU card)
-  → Unity keeps   ~€0.50   (platform booking fee)
+  → Club receives €49.00   (€1.00 club commission taken off face value)
+  → Unity keeps   ~€1.50   (€0.50 buyer booking fee + €1.00 club commission)
 ```
+Per 120-seat event: ~€180 to Unity. Still cheaper than Eventbrite
+(~3.7% + €1.79/ticket to the buyer) for everyone.
+
+### Transparency note
+Clubs net €49, not €50 — this MUST be stated plainly in their terms up front.
+Alternative if preferred: let the club set face value and add the €1 on top
+(club nets full €50, buyer pays €52.50). Either works; taking it off the club
+is simpler.
 
 ### Costs
 - Stripe Connect setup / monthly: **€0** (Standard accounts)
@@ -56,7 +67,9 @@ two homes.
 
 **organisations** — add:
 - `stripe_account_id VARCHAR(255)` — the club's connected Stripe account
-- `booking_fee_cents INT DEFAULT 150` — Unity's fee per ticket (optional per-org override)
+- `buyer_fee_cents INT DEFAULT 50` — Unity booking fee added to the buyer
+- `club_commission_cents INT DEFAULT 100` — Unity commission taken off the club
+  (the total Stripe application_fee = buyer_fee + club_commission)
 
 **events** — add:
 - `price_cents INT` — ticket price (null = not for sale)
