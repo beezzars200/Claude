@@ -28,6 +28,7 @@ const API = (() => {
     getStats: (eventId) => request('GET', `/events/${eventId}/stats`),
     getAdminUsers: () => request('GET', '/admin-users'),
     createAdminUser: (data) => request('POST', '/admin-users', data),
+    resetAdminPassword: (id, password) => request('PATCH', `/admin-users/${id}`, { password }),
     deleteAdminUser: (id) => request('DELETE', `/admin-users/${id}`)
   };
 })();

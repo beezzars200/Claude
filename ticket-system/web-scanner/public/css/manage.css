@@ -617,3 +617,16 @@ body {
 }
 .detail-row:last-child { border-bottom: none; }
 .detail-row-meta { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+/* ── Inline admin password reset field ────────────────── */
+.reset-pw-input {
+  padding: 6px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-family: inherit;
+  width: 180px;
+  max-width: 42vw;
+  outline: none;
+}
+.reset-pw-input:focus { border-color: var(--accent); }

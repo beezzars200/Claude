@@ -201,6 +201,15 @@ router.post('/admin-users', requireApiKey, async (req, res) => {
   res.json({ id: result.insertId, username });
 });
 
+router.patch('/admin-users/:id', requireApiKey, async (req, res) => {
+  const { password } = req.body;
+  if (!password || password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  const hash = await bcrypt.hash(password, 10);
+  const [result] = await db.query('UPDATE admin_users SET password_hash = ? WHERE id = ?', [hash, req.params.id]);
+  if (!result.affectedRows) return res.status(404).json({ error: 'Admin user not found' });
+  res.json({ success: true });
+});
+
 router.delete('/admin-users/:id', requireApiKey, async (req, res) => {
   await db.query('DELETE FROM admin_users WHERE id = ?', [req.params.id]);
   res.json({ success: true });

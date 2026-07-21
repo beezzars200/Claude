@@ -810,7 +810,11 @@ async function loadUsersList() {
           <span class="muted">${u.org_name ? u.org_name : 'Super Admin'}</span>
         </div>
         <div class="list-card-meta">
+          <input type="password" class="reset-pw-input hidden" data-pw-for="${u.id}" placeholder="New password (min 8)" autocomplete="new-password">
           <span class="badge ${u.organisation_id ? 'badge-blue' : 'badge-purple'}">${u.organisation_id ? 'Org Admin' : 'Super Admin'}</span>
+          <button class="btn btn-sm" data-action="reset-user" data-id="${u.id}">Reset Password</button>
+          <button class="btn btn-sm btn-primary hidden" data-action="save-user-pw" data-id="${u.id}" data-name="${u.username.replace(/"/g, '&quot;')}">Save</button>
+          <button class="btn btn-sm hidden" data-action="cancel-user-pw" data-id="${u.id}">Cancel</button>
           <button class="btn btn-sm btn-danger" data-action="delete-user" data-id="${u.id}" data-name="${u.username.replace(/"/g, '&quot;')}">Delete</button>
         </div>
       </div>`).join('')
@@ -818,6 +822,28 @@ async function loadUsersList() {
   } catch (e) {
     list.innerHTML = `<div class="empty-card"><p class="error">${e.message}</p></div>`;
   }
+}
+
+function toggleUserReset(id, show) {
+  const meta = document.querySelector(`#users-list [data-pw-for="${id}"]`)?.closest('.list-card-meta');
+  if (!meta) return;
+  meta.querySelector(`[data-pw-for="${id}"]`).classList.toggle('hidden', !show);
+  meta.querySelector(`[data-action="reset-user"][data-id="${id}"]`).classList.toggle('hidden', show);
+  meta.querySelector(`[data-action="save-user-pw"][data-id="${id}"]`).classList.toggle('hidden', !show);
+  meta.querySelector(`[data-action="cancel-user-pw"][data-id="${id}"]`).classList.toggle('hidden', !show);
+  meta.querySelector(`[data-action="delete-user"][data-id="${id}"]`).classList.toggle('hidden', show);
+  if (show) { const inp = meta.querySelector(`[data-pw-for="${id}"]`); inp.value = ''; inp.focus(); }
+}
+
+async function saveUserPassword(id, username) {
+  const inp = document.querySelector(`#users-list [data-pw-for="${id}"]`);
+  const pw = inp ? inp.value : '';
+  if (!pw || pw.length < 8) return showToast('Password must be at least 8 characters', 'error');
+  try {
+    await API.resetAdminPassword(id, pw);
+    showToast(`Password reset for ${username}`, 'success');
+    toggleUserReset(id, false);
+  } catch (e) { showToast(e.message, 'error'); }
 }
 
 async function deleteUser(id, username) {
@@ -831,7 +857,20 @@ async function deleteUser(id, username) {
 
 document.getElementById('users-list').addEventListener('click', e => {
   const btn = e.target.closest('[data-action]');
-  if (btn?.dataset.action === 'delete-user') deleteUser(btn.dataset.id, btn.dataset.name);
+  if (!btn) return;
+  const { action, id, name } = btn.dataset;
+  if (action === 'delete-user') deleteUser(id, name);
+  else if (action === 'reset-user') toggleUserReset(id, true);
+  else if (action === 'cancel-user-pw') toggleUserReset(id, false);
+  else if (action === 'save-user-pw') saveUserPassword(id, name);
+});
+
+document.getElementById('users-list').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.classList && e.target.classList.contains('reset-pw-input')) {
+    const id = e.target.dataset.pwFor;
+    const saveBtn = document.querySelector(`#users-list [data-action="save-user-pw"][data-id="${id}"]`);
+    saveUserPassword(id, saveBtn ? saveBtn.dataset.name : '');
+  }
 });
 
 document.getElementById('show-add-user').addEventListener('click', () => {
