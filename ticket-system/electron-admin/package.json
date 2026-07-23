@@ -24,8 +24,7 @@
     "productName": "UMN Ticket Admin",
     "mac": {
       "category": "public.app-category.business",
-      "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }],
-      "icon": "resources/icon.icns"
+      "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }]
     },
     "dmg": {
       "title": "UMN Ticket Admin"
