@@ -1,0 +1,6 @@
+<div class="filter-bar">
+  <a href="<%= basePath %>" class="filter-pill <%= !category ? 'active' : '' %>">All</a>
+  <% categories.forEach(function(c) { %>
+    <a href="<%= basePath %>?category=<%= encodeURIComponent(c) %>" class="filter-pill <%= category === c ? 'active' : '' %>"><%= c %></a>
+  <% }); %>
+</div>

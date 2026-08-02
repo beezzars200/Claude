@@ -1,0 +1,39 @@
+<% var title = listing.title %>
+<%- include('partials/head', { title: title }) %>
+<%- include('partials/header') %>
+
+<section class="container section listing-detail">
+  <p class="breadcrumb"><a href="/<%= typePath[listing.type] %>">← All <%= typeLabel.toLowerCase() %>s</a></p>
+
+  <% if (listing.image_url) { %>
+    <div class="listing-image" style="background-image:url('<%= listing.image_url %>')"></div>
+  <% } %>
+
+  <% if (listing.category) { %><span class="card-tag"><%= listing.category %></span><% } %>
+  <h1><%= listing.title %></h1>
+
+  <div class="listing-facts">
+    <% if (listing.type === 'event' && listing.event_date) { %>
+      <p><strong>When:</strong> <%= formatDate(listing.event_date) %><% if (listing.event_time) { %> · <%= listing.event_time %><% } %></p>
+    <% } %>
+    <% if (listing.location) { %><p><strong>Where:</strong> <%= listing.location %></p><% } %>
+    <% if (listing.website_url) { %><p><strong>More info:</strong> <a href="<%= listing.website_url %>" target="_blank" rel="noopener noreferrer"><%= listing.website_url %></a></p><% } %>
+    <% if (listing.contact_name || listing.contact_email || listing.contact_phone) { %>
+      <p><strong>Contact:</strong>
+        <%= listing.contact_name || '' %>
+        <% if (listing.contact_email) { %> · <a href="mailto:<%= listing.contact_email %>"><%= listing.contact_email %></a><% } %>
+        <% if (listing.contact_phone) { %> · <%= listing.contact_phone %><% } %>
+      </p>
+    <% } %>
+  </div>
+
+  <% if (listing.description) { %>
+    <div class="listing-description"><p><%= listing.description %></p></div>
+  <% } %>
+
+  <p class="listing-source">
+    <% if (listing.source === 'community') { %>Submitted by the community.<% } else { %>Curated listing.<% } %>
+  </p>
+</section>
+
+<%- include('partials/footer') %>

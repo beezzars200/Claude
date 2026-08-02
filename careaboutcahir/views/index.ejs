@@ -1,0 +1,54 @@
+<%- include('partials/head') %>
+<%- include('partials/header') %>
+
+<section class="hero">
+  <div class="container">
+    <h1>What's happening in Cahir, right now.</h1>
+    <p>Events, businesses and news for Cahir, Co. Tipperary — kept up to date by the people who live here.</p>
+    <a href="/submit" class="btn btn-primary">Add an event, business or news item</a>
+  </div>
+</section>
+
+<section class="container section">
+  <div class="section-header">
+    <h2>Coming up</h2>
+    <a href="/events" class="section-link">All events →</a>
+  </div>
+  <% if (events.length) { %>
+    <div class="card-grid">
+      <% events.forEach(function(listing) { %><%- include('partials/card', { listing: listing }) %><% }); %>
+    </div>
+  <% } else { %>
+    <p class="empty-state">No upcoming events yet. <a href="/submit">Know of one?</a></p>
+  <% } %>
+</section>
+
+<section class="container section">
+  <div class="section-header">
+    <h2>Local businesses</h2>
+    <a href="/businesses" class="section-link">All businesses →</a>
+  </div>
+  <% if (businesses.length) { %>
+    <div class="card-grid">
+      <% businesses.forEach(function(listing) { %><%- include('partials/card', { listing: listing }) %><% }); %>
+    </div>
+  <% } else { %>
+    <p class="empty-state">No businesses listed yet. <a href="/submit">Add one?</a></p>
+  <% } %>
+</section>
+
+<section class="container section">
+  <div class="section-header">
+    <h2>News</h2>
+    <a href="/news" class="section-link">All news →</a>
+  </div>
+  <% if (news.length) { %>
+    <div class="card-grid">
+      <% news.forEach(function(listing) { %><%- include('partials/card', { listing: listing }) %><% }); %>
+    </div>
+  <% } else { %>
+    <p class="empty-state">Nothing posted yet.</p>
+  <% } %>
+</section>
+
+<%- include('partials/footer') %>

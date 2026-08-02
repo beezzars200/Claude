@@ -1,0 +1,22 @@
+<% var title = 'Businesses' %>
+<%- include('partials/head', { title: title }) %>
+<%- include('partials/header') %>
+
+<section class="container section page-header">
+  <h1>Businesses</h1>
+  <p>Shops, trades and services in Cahir.</p>
+</section>
+
+<section class="container section">
+  <% var basePath = '/businesses' %>
+  <%- include('partials/category-filter', { basePath: basePath, category: category, categories: categories }) %>
+  <% if (businesses.length) { %>
+    <div class="card-grid">
+      <% businesses.forEach(function(listing) { %><%- include('partials/card', { listing: listing }) %><% }); %>
+    </div>
+  <% } else { %>
+    <p class="empty-state">No businesses found. <a href="/submit">Add one?</a></p>
+  <% } %>
+</section>
+
+<%- include('partials/footer') %>

@@ -1,0 +1,34 @@
+<% var title = 'Live listings' %>
+<%- include('partials/head', { title: title }) %>
+<%- include('partials/nav') %>
+
+<section class="container section">
+  <h1>Listings</h1>
+  <div class="filter-bar">
+    <a href="/admin/listings?status=approved" class="filter-pill <%= status === 'approved' ? 'active' : '' %>">Approved</a>
+    <a href="/admin/listings?status=rejected" class="filter-pill <%= status === 'rejected' ? 'active' : '' %>">Rejected</a>
+  </div>
+
+  <div class="admin-list">
+    <% listings.forEach(function(l) { %>
+      <div class="admin-row">
+        <div class="admin-row-main">
+          <span class="card-tag"><%= typeLabels[l.type] %></span>
+          <span class="card-tag <%= l.source === 'curated' ? 'card-tag-curated' : '' %>"><%= l.source %></span>
+          <h3><a href="/listing/<%= l.id %>" target="_blank" rel="noopener noreferrer"><%= l.title %></a></h3>
+          <% if (l.location) { %><p class="card-meta"><%= l.location %></p><% } %>
+        </div>
+        <div class="admin-row-actions">
+          <a href="/admin/listings/<%= l.id %>/edit" class="btn btn-edit">Edit</a>
+          <form method="POST" action="/admin/listings/<%= l.id %>/delete" onsubmit="return confirm('Delete this listing? This cannot be undone.');">
+            <input type="hidden" name="redirect_status" value="<%= status %>">
+            <button type="submit" class="btn btn-reject">Delete</button>
+          </form>
+        </div>
+      </div>
+    <% }); %>
+    <% if (!listings.length) { %><p class="empty-state">Nothing here.</p><% } %>
+  </div>
+</section>
+
+<%- include('partials/foot') %>

@@ -1,0 +1,36 @@
+<% var title = 'Review queue' %>
+<%- include('partials/head', { title: title }) %>
+<%- include('partials/nav') %>
+
+<section class="container section">
+  <h1>Review queue</h1>
+  <p><%= pending.length %> submission<%= pending.length === 1 ? '' : 's' %> waiting for review.</p>
+
+  <% if (!pending.length) { %>
+    <p class="empty-state">Nothing waiting. You're all caught up.</p>
+  <% } %>
+
+  <div class="admin-list">
+    <% pending.forEach(function(l) { %>
+      <div class="admin-row">
+        <div class="admin-row-main">
+          <span class="card-tag"><%= typeLabels[l.type] %></span>
+          <% if (l.category) { %><span class="card-tag"><%= l.category %></span><% } %>
+          <h3><%= l.title %></h3>
+          <% if (l.type === 'event' && l.event_date) { %><p class="card-meta">When: <%= formatDate(l.event_date) %><% if (l.event_time) { %> · <%= l.event_time %><% } %></p><% } %>
+          <% if (l.location) { %><p class="card-meta">Where: <%= l.location %></p><% } %>
+          <% if (l.description) { %><p class="card-excerpt"><%= l.description %></p><% } %>
+          <p class="card-meta">Submitted by <%= l.submitted_by_name || 'anonymous' %> (<%= l.submitted_by_email %>) on <%= formatDate(l.created_at) %></p>
+          <% if (l.website_url) { %><p class="card-meta"><a href="<%= l.website_url %>" target="_blank" rel="noopener noreferrer"><%= l.website_url %></a></p><% } %>
+        </div>
+        <div class="admin-row-actions">
+          <form method="POST" action="/admin/listings/<%= l.id %>/approve"><button type="submit" class="btn btn-approve">Approve</button></form>
+          <form method="POST" action="/admin/listings/<%= l.id %>/reject"><button type="submit" class="btn btn-reject">Reject</button></form>
+          <a href="/admin/listings/<%= l.id %>/edit" class="btn btn-edit">Edit first</a>
+        </div>
+      </div>
+    <% }); %>
+  </div>
+</section>
+
+<%- include('partials/foot') %>

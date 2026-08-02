@@ -1,0 +1,20 @@
+<% var title = 'Log in' %>
+<%- include('partials/head', { title: title }) %>
+
+<div class="admin-login">
+  <form method="POST" action="/admin/login" class="listing-form">
+    <h1>Admin login</h1>
+    <% if (error) { %><p class="form-errors"><%= error %></p><% } %>
+    <label class="field">
+      <span>Username</span>
+      <input type="text" name="username" required autofocus>
+    </label>
+    <label class="field">
+      <span>Password</span>
+      <input type="password" name="password" required>
+    </label>
+    <button type="submit" class="btn btn-primary">Log in</button>
+  </form>
+</div>
+
+<%- include('partials/foot') %>

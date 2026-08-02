@@ -1,0 +1,111 @@
+<% var title = 'Submit a listing' %>
+<%- include('partials/head', { title: title }) %>
+<%- include('partials/header') %>
+
+<section class="container section page-header">
+  <h1>Add something to the site</h1>
+  <p>Events, businesses and news items are reviewed before they go live — usually within a day or two.</p>
+</section>
+
+<section class="container section form-section">
+  <% if (errors && errors.length) { %>
+    <div class="form-errors">
+      <ul><% errors.forEach(function(e) { %><li><%= e %></li><% }); %></ul>
+    </div>
+  <% } %>
+
+  <form method="POST" action="/submit" class="listing-form">
+    <fieldset class="type-picker">
+      <legend>What are you adding?</legend>
+      <label><input type="radio" name="type" value="event" <%= values.type === 'event' || !values.type ? 'checked' : '' %>> Event</label>
+      <label><input type="radio" name="type" value="business" <%= values.type === 'business' ? 'checked' : '' %>> Business</label>
+      <label><input type="radio" name="type" value="news" <%= values.type === 'news' ? 'checked' : '' %>> News</label>
+    </fieldset>
+
+    <label class="field">
+      <span>Title *</span>
+      <input type="text" name="title" required value="<%= values.title || '' %>">
+    </label>
+
+    <label class="field">
+      <span>Category</span>
+      <select name="category" id="category-select"></select>
+    </label>
+
+    <label class="field">
+      <span>Description</span>
+      <textarea name="description" rows="4"><%= values.description || '' %></textarea>
+    </label>
+
+    <label class="field">
+      <span>Location / address</span>
+      <input type="text" name="location" value="<%= values.location || '' %>" placeholder="e.g. The Square, Cahir">
+    </label>
+
+    <div class="event-only-fields">
+      <label class="field">
+        <span>Event date</span>
+        <input type="date" name="event_date" value="<%= values.event_date || '' %>">
+      </label>
+      <label class="field">
+        <span>Event time</span>
+        <input type="text" name="event_time" value="<%= values.event_time || '' %>" placeholder="e.g. 7:30pm">
+      </label>
+    </div>
+
+    <label class="field">
+      <span>Website / Facebook / Instagram link</span>
+      <input type="url" name="website_url" value="<%= values.website_url || '' %>" placeholder="https://">
+    </label>
+
+    <label class="field">
+      <span>Image link (optional)</span>
+      <input type="url" name="image_url" value="<%= values.image_url || '' %>" placeholder="https://">
+    </label>
+
+    <h2 class="form-subheading">Your details</h2>
+    <p class="form-hint">Not published — only used if we need to check something with you.</p>
+
+    <label class="field">
+      <span>Your name</span>
+      <input type="text" name="contact_name" value="<%= values.contact_name || '' %>">
+    </label>
+
+    <label class="field">
+      <span>Your email *</span>
+      <input type="email" name="contact_email" required value="<%= values.contact_email || '' %>">
+    </label>
+
+    <label class="field">
+      <span>Your phone</span>
+      <input type="tel" name="contact_phone" value="<%= values.contact_phone || '' %>">
+    </label>
+
+    <button type="submit" class="btn btn-primary">Submit for review</button>
+  </form>
+</section>
+
+<script>
+  const CATEGORIES = <%- JSON.stringify(categories) %>;
+  const typeInputs = document.querySelectorAll('input[name="type"]');
+  const categorySelect = document.getElementById('category-select');
+  const eventFields = document.querySelector('.event-only-fields');
+  const selectedCategory = <%- JSON.stringify(values.category || '') %>;
+
+  function updateForType(type) {
+    categorySelect.innerHTML = '<option value="">— none —</option>' +
+      (CATEGORIES[type] || []).map(function(c) {
+        return '<option value="' + c + '"' + (c === selectedCategory ? ' selected' : '') + '>' + c + '</option>';
+      }).join('');
+    eventFields.style.display = type === 'event' ? '' : 'none';
+  }
+
+  typeInputs.forEach(function(input) {
+    input.addEventListener('change', function() { updateForType(input.value); });
+  });
+
+  const checked = document.querySelector('input[name="type"]:checked');
+  updateForType(checked ? checked.value : 'event');
+</script>
+
+<%- include('partials/footer') %>

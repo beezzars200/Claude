@@ -1,0 +1,103 @@
+<% var title = mode === 'new' ? 'Add curated listing' : 'Edit listing' %>
+<%- include('partials/head', { title: title }) %>
+<%- include('partials/nav') %>
+
+<section class="container section form-section">
+  <h1><%= title %></h1>
+  <% if (mode === 'new') { %><p>Use this to add something you've found on another Cahir page or site — it publishes immediately.</p><% } %>
+
+  <% if (errors && errors.length) { %>
+    <div class="form-errors"><ul><% errors.forEach(function(e) { %><li><%= e %></li><% }); %></ul></div>
+  <% } %>
+
+  <form method="POST" action="<%= mode === 'new' ? '/admin/listings/new' : '/admin/listings/' + listing.id + '/edit' %>" class="listing-form">
+    <fieldset class="type-picker">
+      <legend>Type</legend>
+      <label><input type="radio" name="type" value="event" <%= listing.type === 'event' || !listing.type ? 'checked' : '' %>> Event</label>
+      <label><input type="radio" name="type" value="business" <%= listing.type === 'business' ? 'checked' : '' %>> Business</label>
+      <label><input type="radio" name="type" value="news" <%= listing.type === 'news' ? 'checked' : '' %>> News</label>
+    </fieldset>
+
+    <label class="field">
+      <span>Title *</span>
+      <input type="text" name="title" required value="<%= listing.title || '' %>">
+    </label>
+
+    <label class="field">
+      <span>Category</span>
+      <select name="category" id="category-select"></select>
+    </label>
+
+    <label class="field">
+      <span>Description</span>
+      <textarea name="description" rows="4"><%= listing.description || '' %></textarea>
+    </label>
+
+    <label class="field">
+      <span>Location / address</span>
+      <input type="text" name="location" value="<%= listing.location || '' %>">
+    </label>
+
+    <div class="event-only-fields">
+      <label class="field">
+        <span>Event date</span>
+        <input type="date" name="event_date" value="<%= (listing.event_date || '').slice(0, 10) %>">
+      </label>
+      <label class="field">
+        <span>Event time</span>
+        <input type="text" name="event_time" value="<%= listing.event_time || '' %>">
+      </label>
+    </div>
+
+    <label class="field">
+      <span>Website / social link</span>
+      <input type="url" name="website_url" value="<%= listing.website_url || '' %>">
+    </label>
+
+    <label class="field">
+      <span>Image link</span>
+      <input type="url" name="image_url" value="<%= listing.image_url || '' %>">
+    </label>
+
+    <h2 class="form-subheading">Contact (not published)</h2>
+    <label class="field">
+      <span>Contact name</span>
+      <input type="text" name="contact_name" value="<%= listing.contact_name || '' %>">
+    </label>
+    <label class="field">
+      <span>Contact email</span>
+      <input type="email" name="contact_email" value="<%= listing.contact_email || '' %>">
+    </label>
+    <label class="field">
+      <span>Contact phone</span>
+      <input type="tel" name="contact_phone" value="<%= listing.contact_phone || '' %>">
+    </label>
+
+    <button type="submit" class="btn btn-primary"><%= mode === 'new' ? 'Publish' : 'Save changes' %></button>
+  </form>
+</section>
+
+<script>
+  const CATEGORIES = <%- JSON.stringify(categories) %>;
+  const typeInputs = document.querySelectorAll('input[name="type"]');
+  const categorySelect = document.getElementById('category-select');
+  const eventFields = document.querySelector('.event-only-fields');
+  const selectedCategory = <%- JSON.stringify(listing.category || '') %>;
+
+  function updateForType(type) {
+    categorySelect.innerHTML = '<option value="">— none —</option>' +
+      (CATEGORIES[type] || []).map(function(c) {
+        return '<option value="' + c + '"' + (c === selectedCategory ? ' selected' : '') + '>' + c + '</option>';
+      }).join('');
+    eventFields.style.display = type === 'event' ? '' : 'none';
+  }
+
+  typeInputs.forEach(function(input) {
+    input.addEventListener('change', function() { updateForType(input.value); });
+  });
+
+  const checked = document.querySelector('input[name="type"]:checked');
+  updateForType(checked ? checked.value : 'event');
+</script>
+
+<%- include('partials/foot') %>

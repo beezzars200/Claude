@@ -1,0 +1,22 @@
+<% var title = 'News' %>
+<%- include('partials/head', { title: title }) %>
+<%- include('partials/header') %>
+
+<section class="container section page-header">
+  <h1>News</h1>
+  <p>Updates from around the town.</p>
+</section>
+
+<section class="container section">
+  <% var basePath = '/news' %>
+  <%- include('partials/category-filter', { basePath: basePath, category: category, categories: categories }) %>
+  <% if (news.length) { %>
+    <div class="card-grid">
+      <% news.forEach(function(listing) { %><%- include('partials/card', { listing: listing }) %><% }); %>
+    </div>
+  <% } else { %>
+    <p class="empty-state">Nothing posted yet. <a href="/submit">Add something?</a></p>
+  <% } %>
+</section>
+
+<%- include('partials/footer') %>

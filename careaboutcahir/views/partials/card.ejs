@@ -1,0 +1,23 @@
+<a class="card" href="/listing/<%= listing.id %>">
+  <% if (listing.image_url) { %>
+    <div class="card-image" style="background-image:url('<%= listing.image_url %>')"></div>
+  <% } %>
+  <div class="card-body">
+    <% if (listing.category) { %><span class="card-tag"><%= listing.category %></span><% } %>
+    <h3 class="card-title"><%= listing.title %></h3>
+    <% if (listing.type === 'event') { %>
+      <p class="card-meta">
+        <% if (listing.event_date) { %><%= formatDate(listing.event_date) %><% } %>
+        <% if (listing.event_time) { %> · <%= listing.event_time %><% } %>
+      </p>
+      <% if (listing.location) { %><p class="card-meta"><%= listing.location %></p><% } %>
+    <% } else if (listing.type === 'business') { %>
+      <% if (listing.location) { %><p class="card-meta"><%= listing.location %></p><% } %>
+    <% } else { %>
+      <p class="card-meta"><%= formatDateShort(listing.created_at) %></p>
+    <% } %>
+    <% if (listing.description) { %>
+      <p class="card-excerpt"><%= listing.description.length > 110 ? listing.description.slice(0, 110) + '…' : listing.description %></p>
+    <% } %>
+  </div>
+</a>

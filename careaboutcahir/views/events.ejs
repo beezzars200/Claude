@@ -1,0 +1,22 @@
+<% var title = 'Events' %>
+<%- include('partials/head', { title: title }) %>
+<%- include('partials/header') %>
+
+<section class="container section page-header">
+  <h1>Events</h1>
+  <p>What's on in and around Cahir.</p>
+</section>
+
+<section class="container section">
+  <% var basePath = '/events' %>
+  <%- include('partials/category-filter', { basePath: basePath, category: category, categories: categories }) %>
+  <% if (events.length) { %>
+    <div class="card-grid">
+      <% events.forEach(function(listing) { %><%- include('partials/card', { listing: listing }) %><% }); %>
+    </div>
+  <% } else { %>
+    <p class="empty-state">No events found. <a href="/submit">Add one?</a></p>
+  <% } %>
+</section>
+
+<%- include('partials/footer') %>
