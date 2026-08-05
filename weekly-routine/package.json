@@ -1,0 +1,13 @@
+{
+  "name": "weekly-routine",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Static weekly gym, work-location and meal schedule page.",
+  "scripts": {
+    "build": "tailwindcss -i src/tailwind.css -o assets/app.css --minify",
+    "watch": "tailwindcss -i src/tailwind.css -o assets/app.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.17"
+  }
+}

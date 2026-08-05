@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Ask for the colour emoji font explicitly — some Linux/Chrome combinations
+   otherwise fall back to a monochrome glyph for the food icons. */
+.emoji {
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+}
+
+/* Printing the week for the fridge door. */
+@media print {
+  body {
+    background: #fff;
+    padding: 0;
+  }
+
+  header {
+    background: #fff !important;
+    color: #0f172a !important;
+    box-shadow: none;
+    border-bottom: 2px solid #0f172a;
+  }
+
+  header p,
+  header span {
+    color: #334155 !important;
+  }
+
+  #now,
+  #summary {
+    display: none;
+  }
+
+  #week > section {
+    break-inside: avoid;
+    box-shadow: none;
+    border: 1px solid #cbd5e1;
+  }
+}
