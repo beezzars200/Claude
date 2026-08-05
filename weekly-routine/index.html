@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly Routine &amp; Nutrition</title>
+    <meta name="description" content="Weekly gym, work-location and meal schedule.">
+    <meta name="theme-color" content="#047857" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#022c22" media="(prefers-color-scheme: dark)">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Routine">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icon.svg">
+    <link rel="stylesheet" href="assets/app.css">
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 min-h-screen pb-12 font-sans">
+
+    <header class="bg-gradient-to-r from-emerald-600 to-teal-700 dark:from-emerald-800 dark:to-teal-900 text-white py-8 px-4 shadow-md">
+        <div class="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tight flex items-center gap-3">
+                    <span data-icon="calendar-days" class="w-7 h-7 inline-block"></span>
+                    Weekly Routine &amp; Nutrition
+                </h1>
+                <p class="text-emerald-100 mt-1">Your structured plan for WFH, Office, Gym, and Meals</p>
+            </div>
+            <div class="flex flex-wrap gap-2 justify-center">
+                <span class="bg-emerald-800/60 backdrop-blur px-3 py-1.5 rounded-lg text-sm font-medium border border-emerald-500/30 whitespace-nowrap flex items-center gap-1.5">
+                    <span data-icon="house" class="w-4 h-4 inline-block text-emerald-300"></span>WFH (Mon/Fri)
+                </span>
+                <span class="bg-teal-800/60 backdrop-blur px-3 py-1.5 rounded-lg text-sm font-medium border border-teal-500/30 whitespace-nowrap flex items-center gap-1.5">
+                    <span data-icon="building" class="w-4 h-4 inline-block text-teal-300"></span>Office (Tue-Thu)
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4 mt-8">
+        <noscript>
+            <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3 mb-6">
+                This schedule is built in the browser, so JavaScript needs to be enabled to see it.
+                The plan itself is readable as plain text in <code>schedule.js</code>.
+            </div>
+        </noscript>
+
+        <!-- What you should be doing at this exact moment. -->
+        <div id="now" class="mb-6"></div>
+
+        <!-- Summary cards, from SUMMARY in schedule.js. -->
+        <div id="summary" class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8"></div>
+
+        <!-- One card per day, from WEEK in schedule.js. -->
+        <div id="week" class="space-y-6"></div>
+
+        <p class="text-center text-xs text-slate-400 dark:text-slate-600 mt-10">
+            Edit <code>schedule.js</code> to change the plan — the page rebuilds itself from it.
+        </p>
+    </main>
+
+    <script src="icons.js"></script>
+    <script src="schedule.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

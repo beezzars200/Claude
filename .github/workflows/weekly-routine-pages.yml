@@ -1,0 +1,80 @@
+name: Deploy Weekly Routine to Pages
+
+# The github-pages environment has a deployment branch policy, so the deploy job
+# only runs from a branch that policy allows. main is allowed already; deploying
+# straight from the feature branch needs that branch added under
+# Settings -> Environments -> github-pages -> Deployment branches.
+on:
+  push:
+    branches:
+      - main
+      - claude/weekly-routine-page-xdwke5
+    paths:
+      - 'weekly-routine/**'
+      - '.github/workflows/weekly-routine-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: weekly-routine/package-lock.json
+
+      # assets/app.css is committed so the page works when opened straight from
+      # disk, but rebuilding here means a new Tailwind class always ships styled
+      # even if someone forgets to run the build locally.
+      - name: Build stylesheet
+        working-directory: weekly-routine
+        run: |
+          npm ci
+          npm run build
+
+      - name: Assemble site
+        working-directory: weekly-routine
+        run: |
+          mkdir -p ../_site/assets
+          cp index.html schedule.js app.js icons.js manifest.webmanifest icon.svg ../_site/
+          cp assets/app.css ../_site/assets/
+
+      # The World Cup chart publishes to this same Pages site from its own
+      # branch, and each deploy replaces the whole site. Carry it along at
+      # /worldcup2026/ so publishing the routine doesn't take it offline.
+      # A deleted branch just means this step is skipped.
+      - name: Include World Cup chart if still present
+        continue-on-error: true
+        run: |
+          git fetch --depth=1 origin claude/world-cup-progress-chart-2tPSj
+          mkdir -p _site/worldcup2026
+          git archive FETCH_HEAD worldcup2026 \
+            | tar -x --strip-components=1 -C _site/worldcup2026
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
