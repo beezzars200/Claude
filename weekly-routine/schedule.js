@@ -67,9 +67,10 @@ const WEEK = [
         tag: 'Pre-Workout',
       },
       {
-        time: '12:00 - 13:00',
+        time: '12:00 - 12:40',
         icon: '🏋️',
         text: 'Gym Session',
+        note: '30-40 min',
         tag: 'Workout',
         feature: true,
       },
@@ -132,9 +133,10 @@ const WEEK = [
         tag: 'Pre-Workout',
       },
       {
-        time: '12:00 - 13:00',
+        time: '12:00 - 12:40',
         icon: '🏋️',
         text: 'Gym Session',
+        note: '30-40 min',
         tag: 'Workout',
         feature: true,
       },

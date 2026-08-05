@@ -27,8 +27,12 @@
     color: #334155 !important;
   }
 
+  /* The picker is a screen control, and the banner is only true at the moment
+     you press print. Pick "Whole week" first if you want the full week on
+     paper — printing captures whatever the picker is showing. */
   #now,
-  #summary {
+  #summary,
+  #day-picker {
     display: none;
   }
 

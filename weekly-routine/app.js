@@ -260,6 +260,48 @@ function renderNow(now) {
 
 /* ---------- boot ---------- */
 
+/* ---------- day picker ---------- */
+
+const ALL_DAYS = 'all';
+
+// Which day the cards are showing. Left null until the user picks one, so the
+// view keeps following the real day — including across midnight with the page
+// still open.
+let chosenDay = null;
+
+function visibleDay(now) {
+  return chosenDay === null ? todayIndex(now) : chosenDay;
+}
+
+// Which day the options are currently labelled against, so the "— today" marker
+// can be rebuilt when the date rolls over rather than going stale.
+let pickerToday = null;
+
+function syncDayPicker(now) {
+  const select = document.getElementById('day-select');
+  const today = todayIndex(now);
+
+  if (pickerToday !== today) {
+    const options = WEEK.map(
+      (entry, index) =>
+        `<option value="${index}">${escapeHtml(entry.day)}${index === today ? ' — today' : ''}</option>`,
+    );
+    options.push(`<option value="${ALL_DAYS}">Whole week</option>`);
+    select.innerHTML = options.join('');
+    pickerToday = today;
+  }
+
+  select.value = String(visibleDay(now));
+}
+
+function initDayPicker() {
+  document.getElementById('day-select').addEventListener('change', (event) => {
+    chosenDay = event.target.value === ALL_DAYS ? ALL_DAYS : Number(event.target.value);
+    render();
+    document.getElementById('week').scrollIntoView({ block: 'start', behavior: 'smooth' });
+  });
+}
+
 // Fills the [data-icon] placeholders in index.html's header.
 function hydrateStaticIcons() {
   document.querySelectorAll('[data-icon]').forEach((slot) => {
@@ -271,25 +313,23 @@ function render() {
   const now = new Date();
   const today = todayIndex(now);
   const minutes = minutesNow(now);
+  const showing = visibleDay(now);
 
   renderSummary();
   renderNow(now);
-  document.getElementById('week').innerHTML = WEEK.map((entry, index) =>
-    renderDay(entry, index === today, minutes),
-  ).join('');
+  syncDayPicker(now);
+
+  document.getElementById('week').innerHTML = WEEK.map((entry, index) => ({ entry, index }))
+    .filter(({ index }) => showing === ALL_DAYS || index === showing)
+    .map(({ entry, index }) => renderDay(entry, index === today, minutes))
+    .join('');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   hydrateStaticIcons();
+  initDayPicker();
   render();
 
-  // Bring today's card into view on load, but only when the page opens at the top
-  // so a refresh mid-scroll doesn't yank you around.
-  const card = document.querySelector('#week > section.ring-2');
-  if (card && window.scrollY === 0) {
-    card.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  }
-
-  // Keep the banner and highlighting honest as the day moves on.
+  // Keep the banner, the highlighting and the selected day honest as time passes.
   setInterval(render, 60 * 1000);
 });
