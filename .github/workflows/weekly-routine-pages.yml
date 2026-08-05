@@ -1,8 +1,14 @@
 name: Deploy Weekly Routine to Pages
 
+# The github-pages environment has a deployment branch policy, so the deploy job
+# only runs from a branch that policy allows. main is allowed already; deploying
+# straight from the feature branch needs that branch added under
+# Settings -> Environments -> github-pages -> Deployment branches.
 on:
   push:
-    branches: ['claude/weekly-routine-page-xdwke5']
+    branches:
+      - main
+      - claude/weekly-routine-page-xdwke5
     paths:
       - 'weekly-routine/**'
       - '.github/workflows/weekly-routine-pages.yml'
@@ -22,8 +28,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: claude/weekly-routine-page-xdwke5
 
       - uses: actions/setup-node@v4
         with:

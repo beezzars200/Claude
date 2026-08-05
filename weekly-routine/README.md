@@ -78,8 +78,15 @@ them.
 ## Deployment
 
 `.github/workflows/weekly-routine-pages.yml` publishes this folder to GitHub
-Pages on every push to `claude/weekly-routine-page-xdwke5` that touches
-`weekly-routine/`, so the live page is the site root.
+Pages on every push to `main` or `claude/weekly-routine-page-xdwke5` that
+touches `weekly-routine/`, so the live page is the site root.
+
+The `github-pages` environment has a deployment branch policy, so the `deploy`
+job is rejected — instantly, with no logs — when it runs from a branch that
+policy doesn't list. `main` is allowed already, so merging is enough. To publish
+straight from the feature branch instead, add it under
+**Settings → Environments → github-pages → Deployment branches**, then re-run
+the workflow.
 
 This repository has one Pages site, and the World Cup chart deploys to it too
 from `claude/world-cup-progress-chart-2tPSj`. The routine workflow copies that
