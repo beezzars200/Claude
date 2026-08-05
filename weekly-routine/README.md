@@ -33,16 +33,20 @@ Tag colours are looked up by name in `TAG_STYLES` (`app.js`). Known tags:
 
 ## What the page does on its own
 
-- **Highlights today** — today's card gets a ring and a "Today" badge, and the
-  page scrolls to it on load.
+- **Day picker** — opens on today and shows that one day. Pick another day to
+  switch, or "Whole week" for every card at once. An untouched picker keeps
+  following the real day, so a page left open overnight rolls over on its own;
+  once you've chosen a day by hand it stays put.
+- **Highlights today** — today's card gets a ring and a "Today" badge.
 - **"Right now" banner** — reads the clock against today's rows and shows what
   you should be doing, or what's next. Refreshes every minute.
 - **Live row** — on today's card, the row covering the current time is outlined.
 - **Dark mode** — follows the device setting.
 - **Add to home screen** — `manifest.webmanifest` installs it as a standalone
   app on a phone.
-- **Print** — the print stylesheet drops the header gradient and banner so a
-  paper copy is readable in black and white.
+- **Print** — the print stylesheet drops the header gradient, banner and picker
+  so a paper copy is readable in black and white. Printing captures whatever the
+  picker is showing, so choose "Whole week" first for the full week.
 
 ## Rebuilding the stylesheet
 
