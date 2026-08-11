@@ -1,0 +1,256 @@
+@import "tailwindcss";
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg-primary: #0f0f14;
+  --bg-secondary: #1a1a24;
+  --bg-tertiary: #22222e;
+  --bg-card: #16161f;
+  --border-color: #2a2a3a;
+  --text-primary: #e0e0f0;
+  --text-secondary: #8888aa;
+  --accent-a: #00ff88;
+  --accent-b: #0088ff;
+  --accent-red: #ff4444;
+  --accent-yellow: #ffcc00;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #44445a;
+}
+
+/* Knob styling */
+.knob-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.knob {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #3a3a4e, #1a1a24);
+  border: 2px solid #3a3a4e;
+  position: relative;
+  cursor: grab;
+  transition: border-color 0.15s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+.knob:hover {
+  border-color: #5a5a7a;
+}
+
+.knob:active {
+  cursor: grabbing;
+}
+
+.knob-indicator {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 10px;
+  border-radius: 1px;
+  transform-origin: bottom center;
+}
+
+/* Fader styling */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #e0e0f0;
+  cursor: pointer;
+  border: 2px solid #5a5a7a;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+input[type="range"]::-webkit-slider-track {
+  height: 4px;
+  border-radius: 2px;
+}
+
+/* Waveform canvas */
+canvas {
+  display: block;
+}
+
+/* Button base */
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: all 0.15s ease;
+  padding: 6px 12px;
+  outline: none;
+}
+
+.btn:active {
+  transform: scale(0.96);
+}
+
+/* Panel styles */
+.panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+}
+
+/* VU Meter animation */
+@keyframes vu-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Jog wheel glow pulse when deck is playing */
+@keyframes jog-glow-a {
+  0%, 100% { box-shadow: 0 0 20px rgba(0,255,153,0.15), 0 0 40px rgba(0,255,153,0.06); }
+  50%       { box-shadow: 0 0 32px rgba(0,255,153,0.28), 0 0 60px rgba(0,255,153,0.12); }
+}
+@keyframes jog-glow-b {
+  0%, 100% { box-shadow: 0 0 20px rgba(0,153,255,0.15), 0 0 40px rgba(0,153,255,0.06); }
+  50%       { box-shadow: 0 0 32px rgba(0,153,255,0.28), 0 0 60px rgba(0,153,255,0.12); }
+}
+
+/* LED strip pulse */
+@keyframes led-strip-a {
+  0%, 100% { opacity: 0.88; }
+  50%       { opacity: 1; }
+}
+@keyframes led-strip-b {
+  0%, 100% { opacity: 0.88; }
+  50%       { opacity: 1; }
+}
+
+/* Beat flash pop */
+@keyframes beat-pop {
+  0%   { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+/* Deck border breathing when playing */
+@keyframes deck-border-a {
+  0%, 100% { border-color: rgba(0,255,153,0.35); }
+  50%       { border-color: rgba(0,255,153,0.65); }
+}
+@keyframes deck-border-b {
+  0%, 100% { border-color: rgba(0,153,255,0.35); }
+  50%       { border-color: rgba(0,153,255,0.65); }
+}
+
+.deck-playing-a { animation: deck-border-a 1.8s ease-in-out infinite; }
+.deck-playing-b { animation: deck-border-b 1.8s ease-in-out infinite; }
+.led-strip-playing-a { animation: led-strip-a 1.8s ease-in-out infinite; }
+.led-strip-playing-b { animation: led-strip-b 1.8s ease-in-out infinite; }
+.jog-playing-a { animation: jog-glow-a 1.8s ease-in-out infinite; }
+.jog-playing-b { animation: jog-glow-b 1.8s ease-in-out infinite; }
+
+/* Drag-over highlight */
+.drag-over {
+  outline: 2px dashed var(--accent-a);
+  outline-offset: -2px;
+}
+
+/* LED indicator */
+.led {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.led-green {
+  background: var(--accent-a);
+  box-shadow: 0 0 6px var(--accent-a);
+}
+
+.led-red {
+  background: var(--accent-red);
+  box-shadow: 0 0 6px var(--accent-red);
+}
+
+.led-off {
+  background: #333344;
+}
+
+/* Text input styling */
+input[type="text"],
+input[type="number"],
+input[type="password"] {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  padding: 6px 10px;
+  font-size: 13px;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.15s;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="password"]:focus {
+  border-color: #5a5a7a;
+}
+
+select {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  padding: 6px 10px;
+  font-size: 13px;
+  outline: none;
+  width: 100%;
+  cursor: pointer;
+}
